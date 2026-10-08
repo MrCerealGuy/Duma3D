@@ -35,11 +35,15 @@ namespace Engine::Scene
     {
         Scene scene;
         const std::size_t cube = scene.addMesh(Mesh::cube());
+        Mesh pyramid;
+        std::string loadError;
+        const bool loadedPyramid = Mesh::loadObj("assets/models/pyramid.obj", pyramid, loadError);
+        const std::size_t importedMesh = scene.addMesh(loadedPyramid ? std::move(pyramid) : Mesh::cube());
         const std::size_t blue = scene.addMaterial({{0.15f, 0.65f, 1.0f}});
         const std::size_t orange = scene.addMaterial({{1.0f, 0.38f, 0.12f}});
         const std::size_t green = scene.addMaterial({{0.18f, 0.85f, 0.48f}});
         scene.addObject(cube, blue, {{-1.25f, 0.0f, 0.0f}, {18.0f, 25.0f, -8.0f}, {0.9f, 0.9f, 0.9f}});
-        scene.addObject(cube, orange, {{0.0f, 0.0f, 0.0f}, {8.0f, -18.0f, 12.0f}, {1.1f, 1.1f, 1.1f}});
+        scene.addObject(importedMesh, orange, {{0.0f, 0.0f, 0.0f}, {8.0f, -18.0f, 12.0f}, {1.1f, 1.1f, 1.1f}});
         scene.addObject(cube, green, {{1.25f, 0.0f, 0.0f}, {-15.0f, -28.0f, 6.0f}, {0.85f, 0.85f, 0.85f}});
         return scene;
     }

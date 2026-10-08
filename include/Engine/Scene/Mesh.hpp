@@ -2,6 +2,7 @@
 
 #include "Engine/Math/Math.hpp"
 
+#include <string>
 #include <vector>
 
 namespace Engine::Scene
@@ -17,5 +18,6 @@ namespace Engine::Scene
         std::vector<Vertex> vertices;
 
         static Mesh cube();
+        static bool loadObj(const std::string& path, Mesh& mesh, std::string& error);
     };
 }

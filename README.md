@@ -51,7 +51,7 @@ Danach `build\Duma3D.exe` ausführen. Die Shader-Assets werden in `build\assets`
 
 ## Aktueller Umfang
 
-Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. Eine Szene kann Meshes, farbige Materialien, eine gerichtete Lichtquelle und platzierte Instanzen verwalten. Instanzen unterstützen Position, Euler-Rotation in Grad und Skalierung; die Demo zeigt ein Würfelmesh mit drei Materialien, Rotationen und Größen. Der Renderer berechnet diffuse Beleuchtung mit Umgebungslicht und transformiert Normalen für die Beleuchtung. Texturen, weitergehende Lichtquellen, Modellimport und Assetverwaltung gibt es noch nicht. Die Win32-Plattforminitialisierung bleibt in `src/Engine/Application.cpp`.
+Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. Eine Szene kann Meshes, farbige Materialien, eine gerichtete Lichtquelle und platzierte Instanzen verwalten. Instanzen unterstützen Position, Euler-Rotation in Grad und Skalierung. Der Renderer berechnet diffuse Beleuchtung mit Umgebungslicht und transformiert Normalen für die Beleuchtung. Ein einfacher Wavefront-OBJ-Importer liest Positionen, Normalen und Flächen; fehlende Normalen werden erzeugt und Polygonflächen trianguliert. Texturkoordinaten und OBJ-Materialdateien werden noch nicht verarbeitet. Die Win32-Plattforminitialisierung bleibt in `src/Engine/Application.cpp`.
 
 ## Struktur
 
@@ -61,6 +61,8 @@ Duma3D/
 │   ├── launch.json
 │   └── tasks.json
 ├── assets/
+│   ├── models/
+│   │   └── pyramid.obj
 │   └── shaders/
 │       ├── basic.vert
 │       └── basic.frag
