@@ -8,7 +8,7 @@
       "program": "${workspaceFolder}/build/Duma3D.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceFolder}/build",
+      "cwd": "${workspaceFolder}",
       "preLaunchTask": "build Duma3D",
       "externalConsole": true,
       "MIMode": "gdb",

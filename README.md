@@ -9,6 +9,7 @@ Duma3D ist ein experimenteller 3D-Engine-Starter für Windows. Der aktuelle Stan
 - ein kleiner, direkt in der Engine implementierter OpenGL-Funktionslader
 - eigene minimale Vektor- und Matrixfunktionen
 - GLSL-Shader unter `assets/shaders`
+- Assetpfade werden relativ zum Verzeichnis der EXE aufgelöst
 - keine externen C++-Bibliotheken und keine Downloads beim CMake-Konfigurieren
 
 GLAD und GLM werden nicht verwendet. Der MinGW-Build bindet die MinGW-Laufzeitbibliotheken statisch ein, damit die erzeugte EXE keine separaten MinGW-DLLs benötigt.
@@ -41,7 +42,7 @@ cmake -S . -B build -G "MinGW Makefiles"
 cmake --build build
 ```
 
-Danach `build\Duma3D.exe` ausführen. Die Shader-Assets werden in `build\assets` kopiert; das Programm muss mit `build` als Arbeitsverzeichnis gestartet werden.
+Danach `build\Duma3D.exe` ausführen. Die Assets werden in `build\assets` neben die EXE kopiert. Das Programm findet sie auch dann, wenn es aus einem anderen Arbeitsverzeichnis gestartet wird.
 
 ## Steuerung
 
@@ -71,6 +72,8 @@ Duma3D/
 │       └── basic.frag
 ├── include/
 │   └── Engine/
+│       ├── Assets/
+│       │   └── AssetPath.hpp
 │       ├── Application.hpp
 │       ├── Graphics/
 │       │   ├── Camera.hpp
@@ -83,6 +86,8 @@ Duma3D/
 ├── src/
 │   ├── main.cpp
 │   └── Engine/
+│       ├── Assets/
+│       │   └── AssetPath.cpp
 │       ├── Application.cpp
 │       ├── Graphics/
 │       │   ├── Camera.cpp

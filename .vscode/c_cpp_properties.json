@@ -10,7 +10,8 @@
                 "UNICODE",
                 "_UNICODE"
             ],
-            "configurationProvider": "ms-vscode.cmake-tools"
+            "configurationProvider": "ms-vscode.cmake-tools",
+            "compilerPath": "c:\\Program Files\\CodeBlocks\\MinGW\\bin\\g++.exe"
         }
     ],
     "version": 4

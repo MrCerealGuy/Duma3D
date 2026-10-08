@@ -1,4 +1,5 @@
 #include "Engine/Graphics/Renderer.hpp"
+#include "Engine/Assets/AssetPath.hpp"
 
 #include <gl/GL.h>
 
@@ -120,7 +121,7 @@ namespace
 
     std::string readText(const char* path)
     {
-        std::ifstream file(path, std::ios::binary);
+        std::ifstream file(Engine::Assets::resolveAssetPath(path), std::ios::binary);
         if (!file)
             return {};
 
@@ -172,7 +173,7 @@ namespace
 
     bool loadPpm(const std::string& path, ImageData& image)
     {
-        std::ifstream file(path, std::ios::binary);
+        std::ifstream file(Engine::Assets::resolveAssetPath(path), std::ios::binary);
         std::string token;
         if (!file || !readPpmToken(file, token) || (token != "P3" && token != "P6"))
             return false;

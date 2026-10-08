@@ -1,4 +1,5 @@
 #include "Engine/Scene/Mesh.hpp"
+#include "Engine/Assets/AssetPath.hpp"
 
 #include <fstream>
 #include <filesystem>
@@ -199,7 +200,8 @@ namespace Engine::Scene
 
     bool Mesh::loadObj(const std::string& path, Mesh& mesh, std::string& error)
     {
-        std::ifstream file(path);
+        const std::filesystem::path objPath = Assets::resolveAssetPath(path);
+        std::ifstream file(objPath);
         if (!file)
         {
             error = "Could not open OBJ file: " + path;
@@ -213,7 +215,6 @@ namespace Engine::Scene
         Materials materials;
         Math::Vec3 currentDiffuseColor{1.0f, 1.0f, 1.0f};
         std::string currentDiffuseTexturePath;
-        const std::filesystem::path objPath(path);
         std::string line;
         std::size_t lineNumber = 0;
         while (std::getline(file, line))
