@@ -871,6 +871,7 @@ namespace Engine::Graphics
         glBindFramebufferPtr(GL_FRAMEBUFFER, m_shadowFramebuffer);
         glClear(GL_DEPTH_BUFFER_BIT);
         glUseProgramPtr(m_shadowProgram);
+        const Frustum lightFrustum = extractFrustum(lightSpaceMatrix);
         for (const Scene::MeshInstance& object : scene.objects())
         {
             if (object.meshIndex >= m_meshes.size())
@@ -881,8 +882,20 @@ namespace Engine::Graphics
                 object.transform.rotationDegrees,
                 object.transform.scale
             );
-            const Math::Mat4 lightMvp = Math::multiply(lightSpaceMatrix, model);
             const GpuMesh& mesh = m_meshes[object.meshIndex];
+            if (mesh.hasBounds)
+            {
+                const Math::Vec3 worldCenter = transformPoint(model, mesh.boundsCenter);
+                const float maximumScale = std::max({
+                    std::abs(object.transform.scale.x),
+                    std::abs(object.transform.scale.y),
+                    std::abs(object.transform.scale.z)
+                });
+                if (sphereOutsideFrustum(lightFrustum, worldCenter, mesh.boundsRadius * maximumScale))
+                    continue;
+            }
+
+            const Math::Mat4 lightMvp = Math::multiply(lightSpaceMatrix, model);
             glUniformMatrix4fvPtr(m_shadowMvpLocation, 1, GL_FALSE, lightMvp.m);
             glBindVertexArrayPtr(mesh.vertexArray);
             glDrawElements(GL_TRIANGLES, mesh.indexCount, GL_UNSIGNED_INT, nullptr);
