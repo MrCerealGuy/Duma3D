@@ -1,3 +1,7 @@
 newmtl WarmStone
 Kd 0.95 0.58 0.22
 map_Kd pyramid.ppm
+
+newmtl TopStone
+Kd 0.72 0.82 0.95
+map_Kd pyramid-top.ppm

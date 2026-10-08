@@ -1,6 +1,6 @@
 # Duma3D
 
-Duma3D ist ein experimenteller 3D-Engine-Starter für Windows. Der aktuelle Stand öffnet ein Win32-Fenster, erstellt über WGL einen OpenGL-3.3-Core-Kontext und rendert mehrere Würfel aus einer einfachen Szene mit frei beweglicher Kamera.
+Duma3D ist ein experimenteller 3D-Engine-Starter für Windows. Der aktuelle Stand öffnet ein Win32-Fenster, erstellt über WGL einen OpenGL-3.3-Core-Kontext und rendert eine einfache Szene mit Würfeln und einem texturierten OBJ-Modell aus frei beweglicher Kamera.
 
 ## Technischer Pfad
 
@@ -51,7 +51,7 @@ Danach `build\Duma3D.exe` ausführen. Die Shader-Assets werden in `build\assets`
 
 ## Aktueller Umfang
 
-Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. Eine Szene kann Meshes, farbige Materialien, eine gerichtete Lichtquelle und platzierte Instanzen verwalten. Instanzen unterstützen Position, Euler-Rotation in Grad und Skalierung. Der Renderer berechnet diffuse Beleuchtung mit Umgebungslicht und transformiert Normalen für die Beleuchtung. Der Wavefront-Importer liest Positionen, Normalen, UV-Texturkoordinaten und Flächen, trianguliert Polygonflächen und erzeugt fehlende Normalen. Er liest MTL-Diffusfarben (`Kd`) sowie einfache `map_Kd`-Pfade. Der eingebaute Texturloader unterstützt P3- und P6-PPM-Bilder; alle anderen Bildformate werden noch nicht unterstützt. Pro OBJ-Mesh kann derzeit eine diffuse Textur verwendet werden. Die Win32-Plattforminitialisierung bleibt in `src/Engine/Application.cpp`.
+Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. Eine Szene kann Meshes, farbige Materialien, eine gerichtete Lichtquelle und platzierte Instanzen verwalten. Instanzen unterstützen Position, Euler-Rotation in Grad und Skalierung. Der Renderer berechnet diffuse Beleuchtung mit Umgebungslicht und transformiert Normalen für die Beleuchtung. Der Wavefront-Importer liest Positionen, Normalen, UV-Texturkoordinaten und Flächen, trianguliert Polygonflächen und erzeugt fehlende Normalen. MTL-Diffusfarben (`Kd`) und einfache `map_Kd`-Pfade werden pro Materialabschnitt übernommen; der Renderer zeichnet diese Abschnitte mit eigener Textur. Der eingebaute Texturloader unterstützt P3- und P6-PPM-Bilder; andere Bildformate und erweiterte MTL-Map-Optionen werden noch nicht unterstützt. Die Win32-Plattforminitialisierung bleibt in `src/Engine/Application.cpp`.
 
 ## Struktur
 
@@ -64,7 +64,8 @@ Duma3D/
 │   ├── models/
 │   │   ├── pyramid.mtl
 │   │   ├── pyramid.obj
-│   │   └── pyramid.ppm
+│   │   ├── pyramid.ppm
+│   │   └── pyramid-top.ppm
 │   └── shaders/
 │       ├── basic.vert
 │       └── basic.frag

@@ -17,12 +17,18 @@ namespace Engine::Graphics
         void shutdown();
 
     private:
+        struct GpuSection
+        {
+            unsigned int texture = 0;
+            int firstVertex = 0;
+            int vertexCount = 0;
+        };
+
         struct GpuMesh
         {
             unsigned int vertexArray = 0;
             unsigned int vertexBuffer = 0;
-            unsigned int texture = 0;
-            int vertexCount = 0;
+            std::vector<GpuSection> sections;
         };
 
         bool loadOpenGLFunctions();

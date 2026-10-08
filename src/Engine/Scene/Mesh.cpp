@@ -193,6 +193,7 @@ namespace Engine::Scene
             { 0.5f, 0.5f, 0.5f}, {-0.5f, 0.5f, 0.5f}, {-0.5f, 0.5f,-0.5f}
         };
         addFace({0.0f, 1.0f, 0.0f}, top);
+        mesh.sections.push_back({0, mesh.vertices.size(), {}});
         return mesh;
     }
 
@@ -211,6 +212,7 @@ namespace Engine::Scene
         Mesh loadedMesh;
         Materials materials;
         Math::Vec3 currentDiffuseColor{1.0f, 1.0f, 1.0f};
+        std::string currentDiffuseTexturePath;
         const std::filesystem::path objPath(path);
         std::string line;
         std::size_t lineNumber = 0;
@@ -265,16 +267,9 @@ namespace Engine::Scene
                 currentDiffuseColor = material == materials.end()
                     ? Math::Vec3{1.0f, 1.0f, 1.0f}
                     : material->second.diffuseColor;
-                if (material != materials.end() && !material->second.diffuseTexturePath.empty())
-                {
-                    const std::string& texturePath = material->second.diffuseTexturePath;
-                    if (!loadedMesh.diffuseTexturePath.empty() && loadedMesh.diffuseTexturePath != texturePath)
-                    {
-                        error = "Multiple diffuse textures per OBJ are not supported: " + path;
-                        return false;
-                    }
-                    loadedMesh.diffuseTexturePath = texturePath;
-                }
+                currentDiffuseTexturePath = material == materials.end()
+                    ? std::string{}
+                    : material->second.diffuseTexturePath;
             }
             else if (record == "f")
             {
@@ -299,6 +294,13 @@ namespace Engine::Scene
                     return false;
                 }
 
+                const std::size_t sectionStart = loadedMesh.vertices.size();
+                const bool canExtendSection = !loadedMesh.sections.empty() &&
+                    loadedMesh.sections.back().firstVertex + loadedMesh.sections.back().vertexCount == sectionStart &&
+                    loadedMesh.sections.back().diffuseTexturePath == currentDiffuseTexturePath;
+                if (!canExtendSection)
+                    loadedMesh.sections.push_back({sectionStart, 0, currentDiffuseTexturePath});
+
                 for (std::size_t i = 1; i + 1 < face.size(); ++i)
                 {
                     const ObjFaceVertex triangle[] = {face[0], face[i], face[i + 1]};
@@ -318,6 +320,7 @@ namespace Engine::Scene
                         loadedMesh.vertices.push_back({
                             positions[vertex.positionIndex], normal, currentDiffuseColor, textureCoordinate
                         });
+                        loadedMesh.sections.back().vertexCount += 1;
                     }
                 }
             }

@@ -369,7 +369,6 @@ namespace Engine::Graphics
         for (const Scene::Mesh& mesh : scene.meshes())
         {
             GpuMesh gpuMesh;
-            gpuMesh.vertexCount = static_cast<int>(mesh.vertices.size());
             glGenVertexArraysPtr(1, &gpuMesh.vertexArray);
             glBindVertexArrayPtr(gpuMesh.vertexArray);
             glGenBuffersPtr(1, &gpuMesh.vertexBuffer);
@@ -401,23 +400,36 @@ namespace Engine::Graphics
             );
             glEnableVertexAttribArrayPtr(3);
 
-            ImageData image;
-            if (!mesh.diffuseTexturePath.empty() && !loadPpm(mesh.diffuseTexturePath, image))
+            const auto createSection = [&gpuMesh](const Scene::MeshSection& section)
             {
-                OutputDebugStringA(("Could not load PPM texture: " + mesh.diffuseTexturePath + "\n").c_str());
-            }
-            glGenTextures(1, &gpuMesh.texture);
-            glBindTexture(GL_TEXTURE_2D, gpuMesh.texture);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-            glTexImage2D(
-                GL_TEXTURE_2D, 0, GL_RGB, image.width, image.height, 0,
-                GL_RGB, GL_UNSIGNED_BYTE, image.rgb.data()
-            );
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+                ImageData image;
+                if (!section.diffuseTexturePath.empty() && !loadPpm(section.diffuseTexturePath, image))
+                {
+                    OutputDebugStringA(("Could not load PPM texture: " + section.diffuseTexturePath + "\n").c_str());
+                }
+                GpuSection gpuSection;
+                gpuSection.firstVertex = static_cast<int>(section.firstVertex);
+                gpuSection.vertexCount = static_cast<int>(section.vertexCount);
+                glGenTextures(1, &gpuSection.texture);
+                glBindTexture(GL_TEXTURE_2D, gpuSection.texture);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+                glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+                glTexImage2D(
+                    GL_TEXTURE_2D, 0, GL_RGB, image.width, image.height, 0,
+                    GL_RGB, GL_UNSIGNED_BYTE, image.rgb.data()
+                );
+                glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+                gpuMesh.sections.push_back(gpuSection);
+            };
+
+            if (mesh.sections.empty())
+                createSection({0, mesh.vertices.size(), {}});
+            else
+                for (const Scene::MeshSection& section : mesh.sections)
+                    createSection(section);
             m_meshes.push_back(gpuMesh);
         }
 
@@ -466,8 +478,11 @@ namespace Engine::Graphics
             glUniformMatrix4fvPtr(m_modelLocation, 1, GL_FALSE, model.m);
             glUniform3fPtr(m_albedoLocation, material.baseColor.x, material.baseColor.y, material.baseColor.z);
             glBindVertexArrayPtr(mesh.vertexArray);
-            glBindTexture(GL_TEXTURE_2D, mesh.texture);
-            glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
+            for (const GpuSection& section : mesh.sections)
+            {
+                glBindTexture(GL_TEXTURE_2D, section.texture);
+                glDrawArrays(GL_TRIANGLES, section.firstVertex, section.vertexCount);
+            }
         }
 
         SwapBuffers(m_deviceContext);
@@ -493,8 +508,11 @@ namespace Engine::Graphics
         }
         for (const GpuMesh& mesh : m_meshes)
         {
-            if (mesh.texture)
-                glDeleteTextures(1, &mesh.texture);
+            for (const GpuSection& section : mesh.sections)
+            {
+                if (section.texture)
+                    glDeleteTextures(1, &section.texture);
+            }
         }
         m_meshes.clear();
     }
