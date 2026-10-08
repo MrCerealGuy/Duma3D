@@ -13,6 +13,7 @@ vt 0.5 1.0
 
 usemtl WarmStone
 f 1/1 2/2 3/3 4/4
+s 1
 usemtl TopStone
 f 4/4 3/3 5/5
 f 3/3 2/2 5/5

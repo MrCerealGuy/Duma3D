@@ -35,6 +35,28 @@ namespace
 
     using Materials = std::unordered_map<std::string, ObjMaterial>;
 
+    struct SmoothNormalKey
+    {
+        std::size_t positionIndex = 0;
+        std::size_t smoothingGroup = 0;
+
+        bool operator==(const SmoothNormalKey&) const = default;
+    };
+
+    struct SmoothNormalKeyHash
+    {
+        std::size_t operator()(const SmoothNormalKey& key) const
+        {
+            return key.positionIndex ^ (key.smoothingGroup + 0x9e3779b9 +
+                (key.positionIndex << 6) + (key.positionIndex >> 2));
+        }
+    };
+
+    Engine::Math::Vec3 add(Engine::Math::Vec3 a, Engine::Math::Vec3 b)
+    {
+        return {a.x + b.x, a.y + b.y, a.z + b.z};
+    }
+
     struct VertexKey
     {
         std::size_t positionIndex;
@@ -49,6 +71,7 @@ namespace
         std::uint32_t specularY;
         std::uint32_t specularZ;
         std::uint32_t shininess;
+        std::size_t smoothingGroup;
 
         bool operator==(const VertexKey&) const = default;
     };
@@ -73,6 +96,7 @@ namespace
             combine(key.specularY);
             combine(key.specularZ);
             combine(key.shininess);
+            combine(key.smoothingGroup);
             return hash;
         }
     };
@@ -197,16 +221,6 @@ namespace
         return {a.x - b.x, a.y - b.y, a.z - b.z};
     }
 
-    Engine::Math::Vec3 faceNormal(
-        Engine::Math::Vec3 a,
-        Engine::Math::Vec3 b,
-        Engine::Math::Vec3 c
-    )
-    {
-        return Engine::Math::normalize(
-            Engine::Math::cross(subtract(b, a), subtract(c, a))
-        );
-    }
 }
 
 namespace Engine::Scene
@@ -329,9 +343,14 @@ namespace Engine::Scene
         Mesh loadedMesh;
         Materials materials;
         std::unordered_map<VertexKey, std::uint32_t, VertexKeyHash> vertexLookup;
+        std::unordered_map<std::string, std::size_t> smoothingGroups;
+        std::unordered_map<SmoothNormalKey, Math::Vec3, SmoothNormalKeyHash> smoothNormalSums;
+        std::vector<SmoothNormalKey> vertexSmoothNormalKeys;
         Math::Vec3 currentDiffuseColor{1.0f, 1.0f, 1.0f};
         Math::Vec3 currentSpecularColor{0.04f, 0.04f, 0.04f};
         float currentShininess = 32.0f;
+        std::size_t currentSmoothingGroup = 0;
+        std::size_t nextSmoothingGroup = 1;
         std::string currentDiffuseTexturePath;
         std::string line;
         std::size_t lineNumber = 0;
@@ -396,6 +415,24 @@ namespace Engine::Scene
                     ? std::string{}
                     : material->second.diffuseTexturePath;
             }
+            else if (record == "s")
+            {
+                std::string groupName;
+                lineStream >> groupName;
+                if (groupName.empty() || groupName == "off" || groupName == "0")
+                {
+                    currentSmoothingGroup = 0;
+                }
+                else
+                {
+                    if (groupName == "on")
+                        groupName = "1";
+                    auto [entry, inserted] = smoothingGroups.try_emplace(groupName, nextSmoothingGroup);
+                    if (inserted)
+                        ++nextSmoothingGroup;
+                    currentSmoothingGroup = entry->second;
+                }
+            }
             else if (record == "f")
             {
                 std::vector<ObjFaceVertex> face;
@@ -429,16 +466,21 @@ namespace Engine::Scene
                 for (std::size_t i = 1; i + 1 < face.size(); ++i)
                 {
                     const ObjFaceVertex triangle[] = {face[0], face[i], face[i + 1]};
-                    const Math::Vec3 triangleNormal = faceNormal(
-                        positions[triangle[0].positionIndex],
-                        positions[triangle[1].positionIndex],
-                        positions[triangle[2].positionIndex]
+                    const Math::Vec3 faceNormalVector = Math::cross(
+                        subtract(positions[triangle[1].positionIndex], positions[triangle[0].positionIndex]),
+                        subtract(positions[triangle[2].positionIndex], positions[triangle[0].positionIndex])
                     );
+                    const Math::Vec3 triangleNormal = Math::normalize(faceNormalVector);
                     for (const ObjFaceVertex& vertex : triangle)
                     {
+                        const bool hasSmoothGeneratedNormal = !vertex.hasNormal && currentSmoothingGroup != 0;
                         const Math::Vec3 normal = vertex.hasNormal
                             ? normals[vertex.normalIndex]
-                            : triangleNormal;
+                            : hasSmoothGeneratedNormal ? Math::Vec3{0.0f, 0.0f, 0.0f} : triangleNormal;
+                        const SmoothNormalKey smoothKey{
+                            vertex.positionIndex,
+                            hasSmoothGeneratedNormal ? currentSmoothingGroup : 0
+                        };
                         const Math::Vec2 textureCoordinate = vertex.hasTextureCoordinate
                             ? textureCoordinates[vertex.textureCoordinateIndex]
                             : Math::Vec2{0.0f, 0.0f};
@@ -457,7 +499,8 @@ namespace Engine::Scene
                             std::bit_cast<std::uint32_t>(currentSpecularColor.x),
                             std::bit_cast<std::uint32_t>(currentSpecularColor.y),
                             std::bit_cast<std::uint32_t>(currentSpecularColor.z),
-                            std::bit_cast<std::uint32_t>(currentShininess)
+                            std::bit_cast<std::uint32_t>(currentShininess),
+                            smoothKey.smoothingGroup
                         };
                         auto [entry, inserted] = vertexLookup.try_emplace(
                             key, static_cast<std::uint32_t>(loadedMesh.vertices.size())
@@ -468,9 +511,15 @@ namespace Engine::Scene
                                 positions[vertex.positionIndex], normal, currentDiffuseColor, textureCoordinate,
                                 currentSpecularColor, currentShininess
                             });
+                            vertexSmoothNormalKeys.push_back(smoothKey);
                         }
                         loadedMesh.indices.push_back(entry->second);
                         loadedMesh.sections.back().indexCount += 1;
+                        if (hasSmoothGeneratedNormal)
+                        {
+                            auto& sum = smoothNormalSums[smoothKey];
+                            sum = add(sum, faceNormalVector);
+                        }
                     }
                 }
             }
@@ -480,6 +529,13 @@ namespace Engine::Scene
         {
             error = "OBJ file contains no renderable faces: " + path;
             return false;
+        }
+
+        for (std::size_t index = 0; index < loadedMesh.vertices.size(); ++index)
+        {
+            const SmoothNormalKey& key = vertexSmoothNormalKeys[index];
+            if (key.smoothingGroup != 0)
+                loadedMesh.vertices[index].normal = Math::normalize(smoothNormalSums[key]);
         }
 
         mesh = std::move(loadedMesh);
