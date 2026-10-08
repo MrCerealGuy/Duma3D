@@ -912,17 +912,73 @@ namespace Engine::Graphics
 
         const Scene::DirectionalLight& light = scene.directionalLight();
         const Math::Vec3 lightDirection = Math::normalize(light.direction);
-        const Math::Vec3 lightTarget{0.0f, 0.0f, 0.0f};
+        Math::Vec3 lightTarget{0.0f, 0.0f, 0.0f};
+        float sceneBoundsRadius = 0.0f;
+        bool hasSceneBounds = false;
+        for (const Scene::MeshInstance& object : scene.objects())
+        {
+            if (object.meshIndex >= m_meshes.size())
+                continue;
+            const GpuMesh& mesh = m_meshes[object.meshIndex];
+            if (!mesh.hasBounds)
+                continue;
+
+            const Math::Mat4 model = Math::composeTransform(
+                object.transform.position,
+                object.transform.rotationDegrees,
+                object.transform.scale
+            );
+            const Math::Vec3 center = transformPoint(model, mesh.boundsCenter);
+            const float radius = mesh.boundsRadius * std::max({
+                std::abs(object.transform.scale.x),
+                std::abs(object.transform.scale.y),
+                std::abs(object.transform.scale.z)
+            });
+            if (!hasSceneBounds)
+            {
+                lightTarget = center;
+                sceneBoundsRadius = radius;
+                hasSceneBounds = true;
+                continue;
+            }
+
+            const float offsetX = center.x - lightTarget.x;
+            const float offsetY = center.y - lightTarget.y;
+            const float offsetZ = center.z - lightTarget.z;
+            const float distance = std::sqrt(offsetX * offsetX + offsetY * offsetY + offsetZ * offsetZ);
+            if (distance + radius <= sceneBoundsRadius)
+                continue;
+            if (distance + sceneBoundsRadius <= radius)
+            {
+                lightTarget = center;
+                sceneBoundsRadius = radius;
+                continue;
+            }
+
+            const float newRadius = (sceneBoundsRadius + distance + radius) * 0.5f;
+            if (distance > 1.0e-6f)
+            {
+                const float centerShift = (newRadius - sceneBoundsRadius) / distance;
+                lightTarget.x += offsetX * centerShift;
+                lightTarget.y += offsetY * centerShift;
+                lightTarget.z += offsetZ * centerShift;
+            }
+            sceneBoundsRadius = newRadius;
+        }
+        const float lightRadius = hasSceneBounds ? sceneBoundsRadius + 1.0f : 5.0f;
+
         const Math::Vec3 lightPosition{
-            lightTarget.x - lightDirection.x * 8.0f,
-            lightTarget.y - lightDirection.y * 8.0f,
-            lightTarget.z - lightDirection.z * 8.0f
+            lightTarget.x - lightDirection.x * (lightRadius + 1.0f),
+            lightTarget.y - lightDirection.y * (lightRadius + 1.0f),
+            lightTarget.z - lightDirection.z * (lightRadius + 1.0f)
         };
         const Math::Vec3 lightUp = std::abs(Math::dot(lightDirection, {0.0f, 1.0f, 0.0f})) > 0.98f
             ? Math::Vec3{0.0f, 0.0f, 1.0f}
             : Math::Vec3{0.0f, 1.0f, 0.0f};
         const Math::Mat4 lightView = Math::lookAt(lightPosition, lightTarget, lightUp);
-        const Math::Mat4 lightProjection = Math::orthographic(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 20.0f);
+        const Math::Mat4 lightProjection = Math::orthographic(
+            -lightRadius, lightRadius, -lightRadius, lightRadius, 0.1f, 2.0f * lightRadius + 2.0f
+        );
         const Math::Mat4 lightSpaceMatrix = Math::multiply(lightProjection, lightView);
         renderShadowMap(scene, lightSpaceMatrix);
 
