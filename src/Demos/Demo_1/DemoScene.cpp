@@ -226,6 +226,149 @@ namespace Duma3D::Demos::Demo_1
             return mesh;
         }
 
+        Mesh makeGrassTuft(std::mt19937& generator)
+        {
+            Mesh mesh;
+            std::uniform_int_distribution<int> bladeCount(4, 7);
+            std::uniform_real_distribution<float> angleDistribution(0.0f, 3.14159265f);
+            std::uniform_real_distribution<float> widthDistribution(0.035f, 0.075f);
+            std::uniform_real_distribution<float> heightDistribution(0.28f, 0.62f);
+            std::uniform_real_distribution<float> leanDistribution(0.04f, 0.2f);
+            std::uniform_real_distribution<float> colorVariation(0.75f, 1.15f);
+            for (int blade = 0; blade < bladeCount(generator); ++blade)
+            {
+                const float angle = angleDistribution(generator);
+                const float width = widthDistribution(generator);
+                const float height = heightDistribution(generator);
+                const float lean = leanDistribution(generator);
+                const Math::Vec3 right{std::cos(angle), 0.0f, std::sin(angle)};
+                const Math::Vec3 normal{-right.z, 0.0f, right.x};
+                const Math::Vec3 base{std::cos(angle * 2.0f) * 0.08f, 0.0f,
+                    std::sin(angle * 2.0f) * 0.08f};
+                const Math::Vec3 tip{base.x + std::cos(angle + 0.7f) * lean, height,
+                    base.z + std::sin(angle + 0.7f) * lean};
+                const std::uint32_t first = static_cast<std::uint32_t>(mesh.vertices.size());
+                const float variation = colorVariation(generator);
+                const Math::Vec3 baseColor{0.16f * variation, 0.31f * variation, 0.07f * variation};
+                const Math::Vec3 tipColor{0.29f * variation, 0.48f * variation, 0.1f * variation};
+                mesh.vertices.push_back({{base.x - right.x * width, base.y, base.z - right.z * width}, normal, baseColor, {0.0f, 0.0f}});
+                mesh.vertices.push_back({{base.x + right.x * width, base.y, base.z + right.z * width}, normal, baseColor, {1.0f, 0.0f}});
+                mesh.vertices.push_back({{tip.x - right.x * width * 0.12f, tip.y, tip.z - right.z * width * 0.12f}, normal, tipColor, {0.0f, 1.0f}});
+                mesh.vertices.push_back({{tip.x + right.x * width * 0.12f, tip.y, tip.z + right.z * width * 0.12f}, normal, tipColor, {1.0f, 1.0f}});
+                mesh.indices.insert(mesh.indices.end(), {
+                    first, first + 1, first + 2, first + 2, first + 1, first + 3,
+                    first + 2, first + 1, first, first + 3, first + 1, first + 2
+                });
+            }
+            mesh.sections.push_back({0, mesh.indices.size(), {}});
+            return mesh;
+        }
+
+        Mesh makeFallenLeaf()
+        {
+            Mesh mesh;
+            constexpr std::array<Math::Vec2, 8> outline = {{
+                {0.0f, -0.5f}, {0.3f, -0.3f}, {0.44f, 0.0f}, {0.27f, 0.3f},
+                {0.0f, 0.5f}, {-0.27f, 0.3f}, {-0.44f, 0.0f}, {-0.3f, -0.3f}
+            }};
+            for (const Math::Vec2 point : outline)
+            {
+                mesh.vertices.push_back({
+                    {point.x, 0.0f, point.y}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f},
+                    {point.x + 0.5f, point.y + 0.5f}
+                });
+            }
+            mesh.vertices.push_back({{0.0f, 0.001f, 0.0f}, {0.0f, 1.0f, 0.0f},
+                {1.0f, 1.0f, 1.0f}, {0.5f, 0.5f}});
+            constexpr std::uint32_t center = 8;
+            constexpr std::uint32_t outlineVertexCount = static_cast<std::uint32_t>(outline.size());
+            for (std::uint32_t index = 0; index < outlineVertexCount; ++index)
+                mesh.indices.insert(mesh.indices.end(), {center, index, (index + 1) % outlineVertexCount});
+            mesh.sections.push_back({0, mesh.indices.size(), {}});
+            return mesh;
+        }
+
+        void appendTransformedMesh(
+            Mesh& destination,
+            const Mesh& source,
+            Math::Vec3 position,
+            Math::Vec3 scale,
+            float rotationY,
+            Math::Vec3 tint = {1.0f, 1.0f, 1.0f}
+        )
+        {
+            const std::uint32_t firstVertex = static_cast<std::uint32_t>(destination.vertices.size());
+            const float cosine = std::cos(rotationY);
+            const float sine = std::sin(rotationY);
+            for (const Engine::Scene::Vertex& vertex : source.vertices)
+            {
+                Math::Vec3 localPosition{
+                    vertex.position.x * scale.x,
+                    vertex.position.y * scale.y,
+                    vertex.position.z * scale.z
+                };
+                Math::Vec3 localNormal{
+                    vertex.normal.x / scale.x,
+                    vertex.normal.y / scale.y,
+                    vertex.normal.z / scale.z
+                };
+                destination.vertices.push_back({
+                    {position.x + localPosition.x * cosine + localPosition.z * sine,
+                        position.y + localPosition.y,
+                        position.z - localPosition.x * sine + localPosition.z * cosine},
+                    Math::normalize({
+                        localNormal.x * cosine + localNormal.z * sine,
+                        localNormal.y,
+                        -localNormal.x * sine + localNormal.z * cosine
+                    }),
+                    {vertex.diffuseColor.x * tint.x, vertex.diffuseColor.y * tint.y,
+                        vertex.diffuseColor.z * tint.z},
+                    vertex.textureCoordinate,
+                    vertex.specularColor,
+                    vertex.shininess,
+                    vertex.emissiveColor
+                });
+            }
+            for (const std::uint32_t index : source.indices)
+                destination.indices.push_back(firstVertex + index);
+        }
+
+        bool clearForGroundDetails(
+            float x,
+            float z,
+            const std::array<Math::Vec3, 2>& houseCenters,
+            const std::array<HouseGenerationOptions, 2>& houseOptions,
+            const std::vector<Math::Vec2>& treeLocations
+        )
+        {
+            const auto distance = [x, z](float centerX, float centerZ)
+            {
+                const float dx = x - centerX;
+                const float dz = z - centerZ;
+                return std::sqrt(dx * dx + dz * dz);
+            };
+            if (distance(0.0f, 9.0f) < 3.8f || distance(0.0f, -15.0f) < 2.6f)
+                return false;
+
+            for (std::size_t index = 0; index < houseCenters.size(); ++index)
+            {
+                const Math::Vec3 center = houseCenters[index];
+                const HouseGenerationOptions& options = houseOptions[index];
+                if (distance(center.x, center.z) < std::max(options.width, options.depth) * 0.62f + 0.5f)
+                    return false;
+                const float entranceX = center.x + options.entranceOffset;
+                const float entranceStartZ = center.z + options.depth * 0.5f - 0.4f;
+                if (std::abs(x - entranceX) < 1.25f && z > entranceStartZ && z < entranceStartZ + 6.8f)
+                    return false;
+            }
+            for (const Math::Vec2 tree : treeLocations)
+            {
+                if (distance(tree.x, tree.y) < 0.55f)
+                    return false;
+            }
+            return true;
+        }
+
         void addBox(
             Scene& scene,
             std::size_t cubeMesh,
@@ -447,6 +590,10 @@ namespace Duma3D::Demos::Demo_1
             scene.addMaterial({{0.78f, 0.91f, 0.86f}, "assets/textures/foliage.ppm"})
         };
         const std::size_t green = scene.addMaterial({{0.18f, 0.72f, 0.3f}, {}});
+        const std::size_t groundRock = scene.addMaterial({{0.94f, 0.94f, 0.92f}, "assets/textures/rock.ppm"});
+        const std::size_t dryWood = scene.addMaterial({{0.88f, 0.78f, 0.63f}, "assets/textures/dark_wood.ppm"});
+        const std::size_t fallenLeaf = scene.addMaterial({{1.0f, 0.93f, 0.78f}, "assets/textures/autumn_leaves.ppm"});
+        const std::size_t grassTuftMaterial = scene.addMaterial({{1.0f, 1.0f, 1.0f}, {}});
         const std::array<Math::Vec3, 6> roomLightPalette = {{
             {1.0f, 0.48f, 0.2f}, {0.2f, 0.42f, 1.0f},
             {0.25f, 0.9f, 0.3f}, {1.0f, 0.2f, 0.5f},
@@ -554,6 +701,129 @@ namespace Duma3D::Demos::Demo_1
                 {{location.x, groundHeight + 2.0f * scale, location.y},
                     {0.0f, 0.0f, 0.0f}, {1.5f * scale, 1.8f * scale, 1.5f * scale}});
         }
+
+        Mesh groundDetails;
+        Mesh branchDetails;
+        Mesh fallenLeaves;
+        Mesh grassTufts;
+        const Mesh rockSource = Mesh::sphere();
+        const Mesh branchSource = Mesh::cube();
+        const Mesh leafSource = makeFallenLeaf();
+        const std::array<Mesh, 5> grassSources = {{
+            makeGrassTuft(generator), makeGrassTuft(generator), makeGrassTuft(generator),
+            makeGrassTuft(generator), makeGrassTuft(generator)
+        }};
+        std::uniform_real_distribution<float> detailOffset(-0.58f, 0.58f);
+        std::uniform_real_distribution<float> detailAngle(0.0f, 6.2831853f);
+        std::uniform_real_distribution<float> detailPosition(-19.5f, 19.5f);
+        std::uniform_real_distribution<float> grassScale(0.72f, 1.45f);
+        std::uniform_real_distribution<float> rockScale(0.08f, 0.27f);
+        std::uniform_real_distribution<float> branchLength(0.4f, 1.05f);
+        std::uniform_real_distribution<float> leafScale(0.16f, 0.34f);
+        std::uniform_int_distribution<int> grassVariant(0, static_cast<int>(grassSources.size()) - 1);
+        std::uniform_int_distribution<int> rockCount(2, 4);
+        std::uniform_int_distribution<int> branchCount(1, 2);
+        std::uniform_int_distribution<int> leafCount(5, 11);
+        std::uniform_int_distribution<std::size_t> leafColor(0, 4);
+        const std::array<Math::Vec3, 5> leafTints = {{
+            {1.0f, 0.72f, 0.43f}, {0.86f, 0.43f, 0.23f}, {0.95f, 0.83f, 0.42f},
+            {0.73f, 0.32f, 0.2f}, {0.88f, 0.62f, 0.3f}
+        }};
+        const auto findClearGroundSpot = [&]()
+        {
+            for (int attempt = 0; attempt < 80; ++attempt)
+            {
+                const float x = detailPosition(generator);
+                const float z = detailPosition(generator);
+                if (clearForGroundDetails(x, z, houseCenters, generatedHouseOptions, treeLocations))
+                    return Math::Vec2{x, z};
+            }
+            return Math::Vec2{18.5f, 18.5f};
+        };
+
+        for (int tuft = 0; tuft < 210; ++tuft)
+        {
+            const Math::Vec2 spot = findClearGroundSpot();
+            appendTransformedMesh(grassTufts, grassSources[grassVariant(generator)],
+                {spot.x, terrainHeight(spot.x, spot.y), spot.y},
+                {grassScale(generator), grassScale(generator), grassScale(generator)}, detailAngle(generator));
+        }
+
+        for (int cluster = 0; cluster < 52; ++cluster)
+        {
+            const Math::Vec2 center = findClearGroundSpot();
+            for (int stone = 0, count = rockCount(generator); stone < count; ++stone)
+            {
+                const float x = center.x + detailOffset(generator);
+                const float z = center.y + detailOffset(generator);
+                if (!clearForGroundDetails(x, z, houseCenters, generatedHouseOptions, treeLocations))
+                    continue;
+                const float sizeX = rockScale(generator);
+                const float sizeY = rockScale(generator) * 0.62f;
+                const float sizeZ = rockScale(generator);
+                const float y = terrainHeight(x, z) + sizeY * 0.7f;
+                const float angle = detailAngle(generator);
+                const float tint = std::uniform_real_distribution<float>(0.78f, 1.08f)(generator);
+                appendTransformedMesh(groundDetails, rockSource, {x, y, z},
+                    {sizeX, sizeY, sizeZ}, angle, {tint, tint, tint});
+            }
+        }
+
+        for (int cluster = 0; cluster < 34; ++cluster)
+        {
+            const Math::Vec2 center = findClearGroundSpot();
+            for (int branch = 0, count = branchCount(generator); branch < count; ++branch)
+            {
+                const float x = center.x + detailOffset(generator) * 0.45f;
+                const float z = center.y + detailOffset(generator) * 0.45f;
+                if (!clearForGroundDetails(x, z, houseCenters, generatedHouseOptions, treeLocations))
+                    continue;
+                const float length = branchLength(generator);
+                const float thickness = std::uniform_real_distribution<float>(0.025f, 0.052f)(generator);
+                const float y = terrainHeight(x, z) + thickness * 0.55f;
+                appendTransformedMesh(branchDetails, branchSource, {x, y, z},
+                    {length, thickness, thickness * 0.85f}, detailAngle(generator));
+                if (branch == 0 && count > 1)
+                {
+                    appendTransformedMesh(branchDetails, branchSource,
+                        {x + detailOffset(generator) * 0.18f, y + thickness * 0.25f,
+                            z + detailOffset(generator) * 0.18f},
+                        {length * 0.48f, thickness * 0.76f, thickness * 0.7f},
+                        detailAngle(generator));
+                }
+            }
+        }
+
+        for (int cluster = 0; cluster < 46; ++cluster)
+        {
+            const Math::Vec2 center = findClearGroundSpot();
+            for (int leaf = 0, count = leafCount(generator); leaf < count; ++leaf)
+            {
+                const float x = center.x + detailOffset(generator);
+                const float z = center.y + detailOffset(generator);
+                if (!clearForGroundDetails(x, z, houseCenters, generatedHouseOptions, treeLocations))
+                    continue;
+                const float size = leafScale(generator);
+                const Math::Vec3 tint = leafTints[leafColor(generator)];
+                appendTransformedMesh(fallenLeaves, leafSource,
+                    {x, terrainHeight(x, z) + 0.025f, z},
+                    {size, 1.0f, size * std::uniform_real_distribution<float>(0.62f, 1.18f)(generator)},
+                    detailAngle(generator), tint);
+            }
+        }
+
+        const auto addGroundDetailMesh = [&scene](Mesh mesh, std::size_t material)
+        {
+            if (!mesh.indices.empty())
+            {
+                const std::size_t meshIndex = scene.addMesh(std::move(mesh));
+                scene.addObject(meshIndex, material);
+            }
+        };
+        addGroundDetailMesh(std::move(groundDetails), groundRock);
+        addGroundDetailMesh(std::move(branchDetails), dryWood);
+        addGroundDetailMesh(std::move(fallenLeaves), fallenLeaf);
+        addGroundDetailMesh(std::move(grassTufts), grassTuftMaterial);
 
         const float monumentHeight = terrainHeight(0.0f, -15.0f);
         addBox(scene, cube, path, {0.0f, monumentHeight + 0.25f, -15.0f}, {1.8f, 0.5f, 1.8f});
