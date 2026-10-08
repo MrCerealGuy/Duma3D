@@ -3,6 +3,7 @@
 #include "Engine/Math/Math.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -10,8 +11,8 @@ namespace Engine::Scene
 {
     struct MeshSection
     {
-        std::size_t firstVertex = 0;
-        std::size_t vertexCount = 0;
+        std::size_t firstIndex = 0;
+        std::size_t indexCount = 0;
         std::string diffuseTexturePath;
     };
 
@@ -26,6 +27,7 @@ namespace Engine::Scene
     struct Mesh
     {
         std::vector<Vertex> vertices;
+        std::vector<std::uint32_t> indices;
         std::vector<MeshSection> sections;
 
         static Mesh cube();

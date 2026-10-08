@@ -8,6 +8,7 @@ Duma3D ist ein experimenteller 3D-Engine-Starter für Windows. Der aktuelle Stan
 - WGL für den OpenGL-Kontext
 - ein kleiner, direkt in der Engine implementierter OpenGL-Funktionslader
 - eigene minimale Vektor- und Matrixfunktionen
+- indizierte Meshes mit Vertex- und Indexpuffern
 - GLSL-Shader unter `assets/shaders`
 - Assetpfade werden relativ zum Verzeichnis der EXE aufgelöst
 - keine externen C++-Bibliotheken und keine Downloads beim CMake-Konfigurieren
@@ -52,7 +53,7 @@ Danach `build\Duma3D.exe` ausführen. Die Assets werden in `build\assets` neben 
 
 ## Aktueller Umfang
 
-Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. Eine Szene kann Meshes, farbige Materialien, eine gerichtete Lichtquelle und platzierte Instanzen verwalten. Instanzen unterstützen Position, Euler-Rotation in Grad und Skalierung. Der Renderer berechnet diffuse Beleuchtung mit Umgebungslicht und transformiert Normalen für die Beleuchtung. Der Wavefront-Importer liest Positionen, Normalen, UV-Texturkoordinaten und Flächen, trianguliert Polygonflächen und erzeugt fehlende Normalen. MTL-Diffusfarben (`Kd`) und einfache `map_Kd`-Pfade werden pro Materialabschnitt übernommen; der Renderer zeichnet diese Abschnitte mit eigener Textur. Der eingebaute Texturloader unterstützt P3- und P6-PPM-Bilder; andere Bildformate und erweiterte MTL-Map-Optionen werden noch nicht unterstützt. Die Win32-Plattforminitialisierung bleibt in `src/Engine/Application.cpp`.
+Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. Meshes werden mit wiederverwendeten Vertices und 32-Bit-Indizes übertragen; OBJ-Vertices werden anhand ihrer Attribute dedupliziert. Eine Szene kann Meshes, farbige Materialien, eine gerichtete Lichtquelle und platzierte Instanzen verwalten. Instanzen unterstützen Position, Euler-Rotation in Grad und Skalierung. Der Renderer berechnet diffuse Beleuchtung mit Umgebungslicht und transformiert Normalen für die Beleuchtung. Der Wavefront-Importer liest Positionen, Normalen, UV-Texturkoordinaten und Flächen, trianguliert Polygonflächen und erzeugt fehlende Normalen. MTL-Diffusfarben (`Kd`) und einfache `map_Kd`-Pfade werden pro Materialabschnitt übernommen; der Renderer zeichnet diese Abschnitte mit eigener Textur. Der eingebaute Texturloader unterstützt P3- und P6-PPM-Bilder; andere Bildformate und erweiterte MTL-Map-Optionen werden noch nicht unterstützt. Die Win32-Plattforminitialisierung bleibt in `src/Engine/Application.cpp`.
 
 ## Struktur
 

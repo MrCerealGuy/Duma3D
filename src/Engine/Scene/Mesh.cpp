@@ -2,7 +2,10 @@
 #include "Engine/Assets/AssetPath.hpp"
 
 #include <fstream>
+#include <bit>
+#include <cstdint>
 #include <filesystem>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -27,6 +30,40 @@ namespace
     };
 
     using Materials = std::unordered_map<std::string, ObjMaterial>;
+
+    struct VertexKey
+    {
+        std::size_t positionIndex;
+        std::size_t textureCoordinateIndex;
+        std::uint32_t normalX;
+        std::uint32_t normalY;
+        std::uint32_t normalZ;
+        std::uint32_t colorX;
+        std::uint32_t colorY;
+        std::uint32_t colorZ;
+
+        bool operator==(const VertexKey&) const = default;
+    };
+
+    struct VertexKeyHash
+    {
+        std::size_t operator()(const VertexKey& key) const
+        {
+            std::size_t hash = key.positionIndex;
+            const auto combine = [&hash](std::size_t value)
+            {
+                hash ^= value + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+            };
+            combine(key.textureCoordinateIndex);
+            combine(key.normalX);
+            combine(key.normalY);
+            combine(key.normalZ);
+            combine(key.colorX);
+            combine(key.colorY);
+            combine(key.colorZ);
+            return hash;
+        }
+    };
 
     void loadMaterialLibrary(const std::filesystem::path& path, Materials& materials)
     {
@@ -155,8 +192,15 @@ namespace Engine::Scene
         Mesh mesh;
         const auto addFace = [&mesh](Math::Vec3 normal, const Math::Vec3 (&positions)[6])
         {
-            for (const Math::Vec3 position : positions)
-                mesh.vertices.push_back({position, normal, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}});
+            const std::uint32_t firstVertex = static_cast<std::uint32_t>(mesh.vertices.size());
+            mesh.vertices.push_back({positions[0], normal, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}});
+            mesh.vertices.push_back({positions[1], normal, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}});
+            mesh.vertices.push_back({positions[2], normal, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}});
+            mesh.vertices.push_back({positions[4], normal, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}});
+            mesh.indices.insert(mesh.indices.end(), {
+                firstVertex, firstVertex + 1, firstVertex + 2,
+                firstVertex + 2, firstVertex + 3, firstVertex
+            });
         };
 
         const Math::Vec3 back[] = {
@@ -194,7 +238,7 @@ namespace Engine::Scene
             { 0.5f, 0.5f, 0.5f}, {-0.5f, 0.5f, 0.5f}, {-0.5f, 0.5f,-0.5f}
         };
         addFace({0.0f, 1.0f, 0.0f}, top);
-        mesh.sections.push_back({0, mesh.vertices.size(), {}});
+        mesh.sections.push_back({0, mesh.indices.size(), {}});
         return mesh;
     }
 
@@ -213,6 +257,7 @@ namespace Engine::Scene
         std::vector<Math::Vec3> normals;
         Mesh loadedMesh;
         Materials materials;
+        std::unordered_map<VertexKey, std::uint32_t, VertexKeyHash> vertexLookup;
         Math::Vec3 currentDiffuseColor{1.0f, 1.0f, 1.0f};
         std::string currentDiffuseTexturePath;
         std::string line;
@@ -295,9 +340,9 @@ namespace Engine::Scene
                     return false;
                 }
 
-                const std::size_t sectionStart = loadedMesh.vertices.size();
+                const std::size_t sectionStart = loadedMesh.indices.size();
                 const bool canExtendSection = !loadedMesh.sections.empty() &&
-                    loadedMesh.sections.back().firstVertex + loadedMesh.sections.back().vertexCount == sectionStart &&
+                    loadedMesh.sections.back().firstIndex + loadedMesh.sections.back().indexCount == sectionStart &&
                     loadedMesh.sections.back().diffuseTexturePath == currentDiffuseTexturePath;
                 if (!canExtendSection)
                     loadedMesh.sections.push_back({sectionStart, 0, currentDiffuseTexturePath});
@@ -318,10 +363,30 @@ namespace Engine::Scene
                         const Math::Vec2 textureCoordinate = vertex.hasTextureCoordinate
                             ? textureCoordinates[vertex.textureCoordinateIndex]
                             : Math::Vec2{0.0f, 0.0f};
-                        loadedMesh.vertices.push_back({
-                            positions[vertex.positionIndex], normal, currentDiffuseColor, textureCoordinate
-                        });
-                        loadedMesh.sections.back().vertexCount += 1;
+                        const std::size_t textureCoordinateKey = vertex.hasTextureCoordinate
+                            ? vertex.textureCoordinateIndex
+                            : std::numeric_limits<std::size_t>::max();
+                        const VertexKey key{
+                            vertex.positionIndex,
+                            textureCoordinateKey,
+                            std::bit_cast<std::uint32_t>(normal.x),
+                            std::bit_cast<std::uint32_t>(normal.y),
+                            std::bit_cast<std::uint32_t>(normal.z),
+                            std::bit_cast<std::uint32_t>(currentDiffuseColor.x),
+                            std::bit_cast<std::uint32_t>(currentDiffuseColor.y),
+                            std::bit_cast<std::uint32_t>(currentDiffuseColor.z)
+                        };
+                        auto [entry, inserted] = vertexLookup.try_emplace(
+                            key, static_cast<std::uint32_t>(loadedMesh.vertices.size())
+                        );
+                        if (inserted)
+                        {
+                            loadedMesh.vertices.push_back({
+                                positions[vertex.positionIndex], normal, currentDiffuseColor, textureCoordinate
+                            });
+                        }
+                        loadedMesh.indices.push_back(entry->second);
+                        loadedMesh.sections.back().indexCount += 1;
                     }
                 }
             }

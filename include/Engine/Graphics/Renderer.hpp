@@ -20,14 +20,15 @@ namespace Engine::Graphics
         struct GpuSection
         {
             unsigned int texture = 0;
-            int firstVertex = 0;
-            int vertexCount = 0;
+            int firstIndex = 0;
+            int indexCount = 0;
         };
 
         struct GpuMesh
         {
             unsigned int vertexArray = 0;
             unsigned int vertexBuffer = 0;
+            unsigned int indexBuffer = 0;
             std::vector<GpuSection> sections;
         };
 

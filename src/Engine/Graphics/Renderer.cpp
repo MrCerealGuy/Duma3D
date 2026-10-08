@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cctype>
+#include <cstdint>
 #include <fstream>
 #include <limits>
 #include <sstream>
@@ -14,6 +15,9 @@
 
 #ifndef GL_ARRAY_BUFFER
 #define GL_ARRAY_BUFFER 0x8892
+#endif
+#ifndef GL_ELEMENT_ARRAY_BUFFER
+#define GL_ELEMENT_ARRAY_BUFFER 0x8893
 #endif
 #ifndef GL_STATIC_DRAW
 #define GL_STATIC_DRAW 0x88E4
@@ -380,6 +384,23 @@ namespace Engine::Graphics
                 mesh.vertices.data(),
                 GL_STATIC_DRAW
             );
+            std::vector<std::uint32_t> sequentialIndices;
+            const std::vector<std::uint32_t>* indices = &mesh.indices;
+            if (indices->empty())
+            {
+                sequentialIndices.reserve(mesh.vertices.size());
+                for (std::size_t index = 0; index < mesh.vertices.size(); ++index)
+                    sequentialIndices.push_back(static_cast<std::uint32_t>(index));
+                indices = &sequentialIndices;
+            }
+            glGenBuffersPtr(1, &gpuMesh.indexBuffer);
+            glBindBufferPtr(GL_ELEMENT_ARRAY_BUFFER, gpuMesh.indexBuffer);
+            glBufferDataPtr(
+                GL_ELEMENT_ARRAY_BUFFER,
+                static_cast<GLsizeiptr>(indices->size() * sizeof(std::uint32_t)),
+                indices->data(),
+                GL_STATIC_DRAW
+            );
             glVertexAttribPointerPtr(
                 0, 3, GL_FLOAT, GL_FALSE, sizeof(Scene::Vertex),
                 reinterpret_cast<const void*>(offsetof(Scene::Vertex, position))
@@ -409,8 +430,8 @@ namespace Engine::Graphics
                     OutputDebugStringA(("Could not load PPM texture: " + section.diffuseTexturePath + "\n").c_str());
                 }
                 GpuSection gpuSection;
-                gpuSection.firstVertex = static_cast<int>(section.firstVertex);
-                gpuSection.vertexCount = static_cast<int>(section.vertexCount);
+                gpuSection.firstIndex = static_cast<int>(section.firstIndex);
+                gpuSection.indexCount = static_cast<int>(section.indexCount);
                 glGenTextures(1, &gpuSection.texture);
                 glBindTexture(GL_TEXTURE_2D, gpuSection.texture);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -427,7 +448,7 @@ namespace Engine::Graphics
             };
 
             if (mesh.sections.empty())
-                createSection({0, mesh.vertices.size(), {}});
+                createSection({0, indices->size(), {}});
             else
                 for (const Scene::MeshSection& section : mesh.sections)
                     createSection(section);
@@ -482,7 +503,14 @@ namespace Engine::Graphics
             for (const GpuSection& section : mesh.sections)
             {
                 glBindTexture(GL_TEXTURE_2D, section.texture);
-                glDrawArrays(GL_TRIANGLES, section.firstVertex, section.vertexCount);
+                const std::uintptr_t indexOffset =
+                    static_cast<std::uintptr_t>(section.firstIndex) * sizeof(std::uint32_t);
+                glDrawElements(
+                    GL_TRIANGLES,
+                    section.indexCount,
+                    GL_UNSIGNED_INT,
+                    reinterpret_cast<const void*>(indexOffset)
+                );
             }
         }
 
@@ -497,6 +525,8 @@ namespace Engine::Graphics
             {
                 if (mesh.vertexBuffer)
                     glDeleteBuffersPtr(1, &mesh.vertexBuffer);
+                if (mesh.indexBuffer)
+                    glDeleteBuffersPtr(1, &mesh.indexBuffer);
             }
         }
         if (glDeleteVertexArraysPtr)
