@@ -359,9 +359,10 @@ namespace Engine::Graphics
         m_lightDirectionLocation = glGetUniformLocationPtr(m_program, "uLightDirection");
         m_lightColorLocation = glGetUniformLocationPtr(m_program, "uLightColor");
         m_ambientColorLocation = glGetUniformLocationPtr(m_program, "uAmbientColor");
+        m_cameraPositionLocation = glGetUniformLocationPtr(m_program, "uCameraPosition");
         return m_mvpLocation >= 0 && m_modelLocation >= 0 && m_textureLocation >= 0 && m_albedoLocation >= 0 &&
             m_lightDirectionLocation >= 0 && m_lightColorLocation >= 0 &&
-            m_ambientColorLocation >= 0;
+            m_ambientColorLocation >= 0 && m_cameraPositionLocation >= 0;
     }
 
     bool Renderer::initialize(HDC deviceContext, const Scene::Scene& scene)
@@ -421,6 +422,16 @@ namespace Engine::Graphics
                 reinterpret_cast<const void*>(offsetof(Scene::Vertex, textureCoordinate))
             );
             glEnableVertexAttribArrayPtr(3);
+            glVertexAttribPointerPtr(
+                4, 3, GL_FLOAT, GL_FALSE, sizeof(Scene::Vertex),
+                reinterpret_cast<const void*>(offsetof(Scene::Vertex, specularColor))
+            );
+            glEnableVertexAttribArrayPtr(4);
+            glVertexAttribPointerPtr(
+                5, 1, GL_FLOAT, GL_FALSE, sizeof(Scene::Vertex),
+                reinterpret_cast<const void*>(offsetof(Scene::Vertex, shininess))
+            );
+            glEnableVertexAttribArrayPtr(5);
 
             const auto createSection = [&gpuMesh](const Scene::MeshSection& section)
             {
@@ -483,6 +494,8 @@ namespace Engine::Graphics
         glUniform3fPtr(m_lightDirectionLocation, light.direction.x, light.direction.y, light.direction.z);
         glUniform3fPtr(m_lightColorLocation, light.color.x, light.color.y, light.color.z);
         glUniform3fPtr(m_ambientColorLocation, light.ambientColor.x, light.ambientColor.y, light.ambientColor.z);
+        const Math::Vec3& cameraPosition = camera.position();
+        glUniform3fPtr(m_cameraPositionLocation, cameraPosition.x, cameraPosition.y, cameraPosition.z);
         for (const Scene::MeshInstance& object : scene.objects())
         {
             if (object.meshIndex >= m_meshes.size() || object.materialIndex >= scene.materials().size())
@@ -561,6 +574,7 @@ namespace Engine::Graphics
         m_lightDirectionLocation = -1;
         m_lightColorLocation = -1;
         m_ambientColorLocation = -1;
+        m_cameraPositionLocation = -1;
         m_initialized = false;
         m_deviceContext = nullptr;
     }

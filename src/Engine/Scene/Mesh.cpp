@@ -1,6 +1,7 @@
 #include "Engine/Scene/Mesh.hpp"
 #include "Engine/Assets/AssetPath.hpp"
 
+#include <algorithm>
 #include <fstream>
 #include <bit>
 #include <cmath>
@@ -27,6 +28,8 @@ namespace
     struct ObjMaterial
     {
         Engine::Math::Vec3 diffuseColor{1.0f, 1.0f, 1.0f};
+        Engine::Math::Vec3 specularColor{0.04f, 0.04f, 0.04f};
+        float shininess = 32.0f;
         std::string diffuseTexturePath;
     };
 
@@ -42,6 +45,10 @@ namespace
         std::uint32_t colorX;
         std::uint32_t colorY;
         std::uint32_t colorZ;
+        std::uint32_t specularX;
+        std::uint32_t specularY;
+        std::uint32_t specularZ;
+        std::uint32_t shininess;
 
         bool operator==(const VertexKey&) const = default;
     };
@@ -62,6 +69,10 @@ namespace
             combine(key.colorX);
             combine(key.colorY);
             combine(key.colorZ);
+            combine(key.specularX);
+            combine(key.specularY);
+            combine(key.specularZ);
+            combine(key.shininess);
             return hash;
         }
     };
@@ -88,6 +99,18 @@ namespace
                 Engine::Math::Vec3 color{};
                 if (lineStream >> color.x >> color.y >> color.z)
                     materials[currentMaterial].diffuseColor = color;
+            }
+            else if (record == "Ks" && !currentMaterial.empty())
+            {
+                Engine::Math::Vec3 color{};
+                if (lineStream >> color.x >> color.y >> color.z)
+                    materials[currentMaterial].specularColor = color;
+            }
+            else if (record == "Ns" && !currentMaterial.empty())
+            {
+                float shininess = 0.0f;
+                if (lineStream >> shininess)
+                    materials[currentMaterial].shininess = std::max(shininess, 1.0f);
             }
             else if (record == "map_Kd" && !currentMaterial.empty())
             {
@@ -307,6 +330,8 @@ namespace Engine::Scene
         Materials materials;
         std::unordered_map<VertexKey, std::uint32_t, VertexKeyHash> vertexLookup;
         Math::Vec3 currentDiffuseColor{1.0f, 1.0f, 1.0f};
+        Math::Vec3 currentSpecularColor{0.04f, 0.04f, 0.04f};
+        float currentShininess = 32.0f;
         std::string currentDiffuseTexturePath;
         std::string line;
         std::size_t lineNumber = 0;
@@ -361,6 +386,12 @@ namespace Engine::Scene
                 currentDiffuseColor = material == materials.end()
                     ? Math::Vec3{1.0f, 1.0f, 1.0f}
                     : material->second.diffuseColor;
+                currentSpecularColor = material == materials.end()
+                    ? Math::Vec3{0.04f, 0.04f, 0.04f}
+                    : material->second.specularColor;
+                currentShininess = material == materials.end()
+                    ? 32.0f
+                    : material->second.shininess;
                 currentDiffuseTexturePath = material == materials.end()
                     ? std::string{}
                     : material->second.diffuseTexturePath;
@@ -422,7 +453,11 @@ namespace Engine::Scene
                             std::bit_cast<std::uint32_t>(normal.z),
                             std::bit_cast<std::uint32_t>(currentDiffuseColor.x),
                             std::bit_cast<std::uint32_t>(currentDiffuseColor.y),
-                            std::bit_cast<std::uint32_t>(currentDiffuseColor.z)
+                            std::bit_cast<std::uint32_t>(currentDiffuseColor.z),
+                            std::bit_cast<std::uint32_t>(currentSpecularColor.x),
+                            std::bit_cast<std::uint32_t>(currentSpecularColor.y),
+                            std::bit_cast<std::uint32_t>(currentSpecularColor.z),
+                            std::bit_cast<std::uint32_t>(currentShininess)
                         };
                         auto [entry, inserted] = vertexLookup.try_emplace(
                             key, static_cast<std::uint32_t>(loadedMesh.vertices.size())
@@ -430,7 +465,8 @@ namespace Engine::Scene
                         if (inserted)
                         {
                             loadedMesh.vertices.push_back({
-                                positions[vertex.positionIndex], normal, currentDiffuseColor, textureCoordinate
+                                positions[vertex.positionIndex], normal, currentDiffuseColor, textureCoordinate,
+                                currentSpecularColor, currentShininess
                             });
                         }
                         loadedMesh.indices.push_back(entry->second);
