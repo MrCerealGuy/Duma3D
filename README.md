@@ -1,6 +1,6 @@
 # Duma3D
 
-Duma3D ist ein experimenteller 3D-Engine-Starter für Windows. Der aktuelle Stand öffnet ein Win32-Fenster, erstellt über WGL einen OpenGL-3.3-Core-Kontext und rendert eine einfache Szene mit einer prozeduralen Bodenebene, Würfeln und UV-Kugel sowie einem texturierten OBJ-Modell aus frei beweglicher Kamera.
+Duma3D ist eine experimentelle 3D-Engine für Windows. Das Projekt baut die Engine als wiederverwendbare Bibliothek und enthält mit `Demo_1` ein separates Beispielprogramm, das Rendering, Texturen, Beleuchtung, Schatten, prozedurale Szenen und begehbare Räume vorführt.
 
 ## Technischer Pfad
 
@@ -59,7 +59,11 @@ Danach `build\Duma3D.exe` ausführen. Die Assets werden in `build\assets` neben 
 
 ## Aktueller Umfang
 
-Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. OBJ-Vertices werden anhand ihrer Attribute dedupliziert; GPU-Indexpuffer verwenden 16 Bit, wenn alle Indizes passen, sonst 32 Bit. Haupt- und Schattenpass überspringen Objekte, deren Mesh-Begrenzungskugel außerhalb des jeweiligen Kamera- oder Lichtfrustums liegt; das Lichtfrustum wird aus den Szenenobjekten berechnet. Die Demo-Szene wird bei jedem Programmstart prozedural aufgebaut und variiert Hausmaße, Tür- und Raumaufteilung, Fenster, Giebel- oder Flachdächer, Farben, Raumlichter und Baumstandorte. Kachelbare PPM-Oberflächentexturen geben Gelände, Putzfassaden, Dächer, Holzböden und -details, Steinwege, Rinde und Baumkronen sichtbare Struktur. Die Szene enthält hügeliges Gelände, zwei begehbare Häuser mit jeweils einem vorderen und hinteren Raum sowie Wege und Bäume. Die Innenwand verläuft parallel zur Eingangswand; die Türöffnung verbindet beide Räume. Als prozedurale Grundmeshes gibt es einen Würfel und eine UV-Kugel mit glatten Normalen. Die Beleuchtung kombiniert Umgebungslicht, ein gerichtetes Licht mit 3×3-PCF-Schatten, bis zu vier abschwächende Punktlichter, Blinn-Phong-Glanz und Selbstleuchten. Farbtexturen werden als sRGB dekodiert; Beleuchtung und Reinhard-Tonemapping erfolgen linear, danach wird die Ausgabe wieder sRGB-kodiert. Der Wavefront-Importer liest Positionen, Normalen, UV-Texturkoordinaten, Flächen und Smoothing-Gruppen (`s`), trianguliert Polygonflächen und berechnet fehlende Normalen flach oder gruppenweise. MTL-Diffusfarben (`Kd`), Glanzfarben (`Ks`), Selbstleuchtfarben (`Ke`), Glanzschärfe (`Ns`) und einfache `map_Kd`-Pfade werden pro Materialabschnitt übernommen; diffuse Texturen werden mit generierten Mipmaps und trilinearer Filterung dargestellt und bei identischen Pfaden gemeinsam auf der GPU gehalten. Der Texturloader unterstützt P3- und P6-PPM sowie PNG, JPEG und BMP über Windows Imaging Component; erweiterte MTL-Map-Optionen werden noch nicht unterstützt. Die Win32-Plattforminitialisierung bleibt in `src/Engine/Application.cpp`.
+Die Engine wird als wiederverwendbare statische Bibliothek `Duma3DEngine` gebaut. Demo-Szenen, Eingabesteuerung und Einstiegspunkte liegen unabhängig davon unter `src/Demos/<DemoName>`; `Demo_1` ist das aktuelle Beispielprogramm und wird gegen die Engine-Bibliothek gelinkt.
+
+Das Terrain verwendet pro Programmstart eine zufällig erzeugte Verteilung aus organischen Gras-, Erd-, Fels- und Pflasterflächen. Mehrere räumliche Rauschfelder und zufällige Materialflecken variieren Größe und Form der Geländeoberflächen.
+
+Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. OBJ-Vertices werden anhand ihrer Attribute dedupliziert; GPU-Indexpuffer verwenden 16 Bit, wenn alle Indizes passen, sonst 32 Bit. Haupt- und Schattenpass überspringen Objekte, deren Mesh-Begrenzungskugel außerhalb des jeweiligen Kamera- oder Lichtfrustums liegt; das Lichtfrustum wird aus den Szenenobjekten berechnet. Die Demo-Szene wird bei jedem Programmstart prozedural aufgebaut und variiert Hausmaße, Tür- und Raumaufteilung, Fenster, Giebel- oder Flachdächer, Farben, Raumlichter und Baumstandorte. Kachelbare PPM-Oberflächentexturen geben Gelände, Putzfassaden, Dächer, Holzböden und -details, Steinwege, Rinde und Baumkronen sichtbare Struktur. Die Szene enthält hügeliges Gelände, zwei begehbare Häuser mit jeweils einem vorderen und hinteren Raum sowie Wege und Bäume. Die Innenwand verläuft parallel zur Eingangswand; die Türöffnung verbindet beide Räume. Als prozedurale Grundmeshes gibt es einen Würfel und eine UV-Kugel mit glatten Normalen. Die Beleuchtung kombiniert Umgebungslicht, ein gerichtetes Licht mit 3×3-PCF-Schatten, bis zu vier abschwächende Punktlichter, Blinn-Phong-Glanz und Selbstleuchten. Farbtexturen werden als sRGB dekodiert; Beleuchtung und Reinhard-Tonemapping erfolgen linear, danach wird die Ausgabe wieder sRGB-kodiert. Der Wavefront-Importer liest Positionen, Normalen, UV-Texturkoordinaten, Flächen und Smoothing-Gruppen (`s`), trianguliert Polygonflächen und berechnet fehlende Normalen flach oder gruppenweise. MTL-Diffusfarben (`Kd`), Glanzfarben (`Ks`), Selbstleuchtfarben (`Ke`), Glanzschärfe (`Ns`) und einfache `map_Kd`-Pfade werden pro Materialabschnitt übernommen; diffuse Texturen werden mit generierten Mipmaps und trilinearer Filterung dargestellt und bei identischen Pfaden gemeinsam auf der GPU gehalten. Der Texturloader unterstützt P3- und P6-PPM sowie PNG, JPEG und BMP über Windows Imaging Component; erweiterte MTL-Map-Optionen werden noch nicht unterstützt. Die Win32-Anwendung und die konkrete Demo-Szene liegen unter `src/Demos/Demo_1`.
 
 ## Struktur
 
@@ -77,6 +81,8 @@ Duma3D/
 │   │   ├── dark_wood.ppm
 │   │   ├── cobblestone.ppm
 │   │   ├── bark.ppm
+│   │   ├── soil.ppm
+│   │   ├── rock.ppm
 │   │   └── foliage.ppm
 │   ├── models/
 │   │   ├── pyramid.mtl
@@ -92,7 +98,6 @@ Duma3D/
 │   └── Engine/
 │       ├── Assets/
 │       │   └── AssetPath.hpp
-│       ├── Application.hpp
 │       ├── Graphics/
 │       │   ├── Camera.hpp
 │       │   └── Renderer.hpp
@@ -102,11 +107,9 @@ Duma3D/
 │           ├── Mesh.hpp
 │           └── Scene.hpp
 ├── src/
-│   ├── main.cpp
 │   └── Engine/
 │       ├── Assets/
 │       │   └── AssetPath.cpp
-│       ├── Application.cpp
 │       ├── Graphics/
 │       │   ├── Camera.cpp
 │       │   └── Renderer.cpp
@@ -115,6 +118,13 @@ Duma3D/
 │       └── Scene/
 │           ├── Mesh.cpp
 │           └── Scene.cpp
+│   └── Demos/
+│       └── Demo_1/
+│           ├── Application.hpp
+│           ├── Application.cpp
+│           ├── DemoScene.hpp
+│           ├── DemoScene.cpp
+│           └── main.cpp
 ├── CMakeLists.txt
 ├── Duma3D.code-workspace
 └── README.md

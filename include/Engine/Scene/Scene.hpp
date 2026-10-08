@@ -78,6 +78,4 @@ namespace Engine::Scene
         std::vector<PointLight> m_pointLights;
     };
 
-    Scene makeDemoScene();
-    float sampleDemoTerrainHeight(float x, float z);
 }

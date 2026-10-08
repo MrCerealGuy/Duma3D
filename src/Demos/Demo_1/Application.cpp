@@ -1,4 +1,5 @@
-#include "Engine/Application.hpp"
+#include "Application.hpp"
+#include "DemoScene.hpp"
 
 #include <windows.h>
 #include <gl/GL.h>
@@ -67,7 +68,7 @@ Application::Application(int width, int height, std::wstring title)
     : width_(width),
       height_(height),
       title_(std::move(title)),
-      scene_(Engine::Scene::makeDemoScene())
+      scene_(Duma3D::Demos::Demo_1::makeDemoScene())
 {
 }
 
@@ -250,7 +251,7 @@ void Application::update(float dt)
         camera_.setPosition(afterForward);
 
     Engine::Math::Vec3 position = camera_.position();
-    const float groundHeight = Engine::Scene::sampleDemoTerrainHeight(position.x, position.z);
+    const float groundHeight = Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(position.x, position.z);
     float feet = position.y - playerEyeHeight;
     const bool onGround = feet <= groundHeight + 0.02f && verticalVelocity_ <= 0.0f;
     if (jumpRequested_ && onGround)
@@ -296,7 +297,7 @@ void Application::toggleMovementMode()
     if (gravityMode_)
     {
         Engine::Math::Vec3 position = camera_.position();
-        position.y = Engine::Scene::sampleDemoTerrainHeight(position.x, position.z) + playerEyeHeight;
+        position.y = Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(position.x, position.z) + playerEyeHeight;
         camera_.setPosition(position);
     }
 
@@ -407,7 +408,7 @@ int Application::run()
     }
 
     Engine::Math::Vec3 startPosition = camera_.position();
-    startPosition.y = Engine::Scene::sampleDemoTerrainHeight(startPosition.x, startPosition.z) + playerEyeHeight;
+    startPosition.y = Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(startPosition.x, startPosition.z) + playerEyeHeight;
     camera_.setPosition(startPosition);
     updateHud();
 

@@ -9,14 +9,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# --------------------------------------------------
-# Duma3D
-# --------------------------------------------------
-
-add_executable(Duma3D
-    src/main.cpp
+# Reusable engine code. Demo scenes and their application entry points live
+# outside this target so other demos can link the same engine library.
+add_library(Duma3DEngine STATIC
     src/Engine/Assets/AssetPath.cpp
-    src/Engine/Application.cpp
     src/Engine/Graphics/Camera.cpp
     src/Engine/Graphics/Renderer.cpp
     src/Engine/Math/Math.cpp
@@ -24,39 +20,24 @@ add_executable(Duma3D
     src/Engine/Scene/Scene.cpp
 )
 
-# --------------------------------------------------
-# Include directories
-# --------------------------------------------------
-
-target_include_directories(Duma3D PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
+target_include_directories(Duma3DEngine
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-# --------------------------------------------------
-# Windows / MinGW
-# --------------------------------------------------
+add_executable(Duma3D
+    src/Demos/Demo_1/main.cpp
+    src/Demos/Demo_1/Application.cpp
+    src/Demos/Demo_1/DemoScene.cpp
+)
+
+target_include_directories(Duma3D PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Demos/Demo_1
+)
+target_link_libraries(Duma3D PRIVATE Duma3DEngine)
 
 if(WIN32)
-    target_link_options(Duma3D PRIVATE
-        -mconsole
-    )
-
-    if(MINGW)
-        target_link_options(Duma3D PRIVATE
-            -static
-            -static-libgcc
-            -static-libstdc++
-        )
-    endif()
-endif()
-
-# --------------------------------------------------
-# OpenGL / Windows libraries
-# --------------------------------------------------
-
-if(WIN32)
-    target_link_libraries(Duma3D PRIVATE
+    target_link_libraries(Duma3DEngine PUBLIC
         opengl32
         gdi32
         user32
@@ -64,11 +45,12 @@ if(WIN32)
         ole32
         windowscodecs
     )
-endif()
 
-# --------------------------------------------------
-# Assets
-# --------------------------------------------------
+    target_link_options(Duma3D PRIVATE -mconsole)
+    if(MINGW)
+        target_link_options(Duma3D PRIVATE -static -static-libgcc -static-libstdc++)
+    endif()
+endif()
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
     file(GLOB_RECURSE DUMA3D_ASSET_FILES
@@ -85,18 +67,10 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
     )
 endif()
 
-# --------------------------------------------------
-# Compiler warnings
-# --------------------------------------------------
-
 if(MSVC)
-    target_compile_options(Duma3D PRIVATE
-        /W4
-    )
+    target_compile_options(Duma3DEngine PRIVATE /W4)
+    target_compile_options(Duma3D PRIVATE /W4)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    target_compile_options(Duma3D PRIVATE
-        -Wall
-        -Wextra
-        -Wpedantic
-    )
+    target_compile_options(Duma3DEngine PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(Duma3D PRIVATE -Wall -Wextra -Wpedantic)
 endif()
