@@ -25,6 +25,10 @@ vec3 linearToSrgb(vec3 color) {
     vec3 upperRange = 1.055 * pow(color, vec3(1.0 / 2.4)) - 0.055;
     return mix(upperRange, lowerRange, lessThanEqual(color, vec3(0.0031308)));
 }
+vec3 reinhardToneMap(vec3 color) {
+    color = max(color, vec3(0.0));
+    return color / (vec3(1.0) + color);
+}
 float directionalShadow(vec3 normal, vec3 lightDirection) {
     vec3 projected = vLightSpacePosition.xyz / vLightSpacePosition.w;
     projected = projected * 0.5 + 0.5;
@@ -73,5 +77,6 @@ void main() {
     }
     vec3 textureColor = texture(uDiffuseTexture, vTexCoord).rgb;
     vec3 diffuseColor = uAlbedo * vDiffuseColor * textureColor * diffuseLighting;
-    FragColor = vec4(linearToSrgb(diffuseColor + specularLighting), 1.0);
+    vec3 toneMappedColor = reinhardToneMap(diffuseColor + specularLighting);
+    FragColor = vec4(linearToSrgb(toneMappedColor), 1.0);
 }

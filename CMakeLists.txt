@@ -69,6 +69,13 @@ endif()
 # --------------------------------------------------
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
+    file(GLOB_RECURSE DUMA3D_ASSET_FILES
+        LIST_DIRECTORIES false
+        CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/*"
+    )
+    set_property(TARGET Duma3D APPEND PROPERTY LINK_DEPENDS ${DUMA3D_ASSET_FILES})
+
     add_custom_command(TARGET Duma3D POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_CURRENT_SOURCE_DIR}/assets"
