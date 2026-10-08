@@ -1,8 +1,10 @@
 #include "Engine/Scene/Mesh.hpp"
 
 #include <fstream>
+#include <filesystem>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -14,6 +16,34 @@ namespace
         std::size_t normalIndex = 0;
         bool hasNormal = false;
     };
+
+    using MaterialColors = std::unordered_map<std::string, Engine::Math::Vec3>;
+
+    void loadMaterialLibrary(const std::filesystem::path& path, MaterialColors& materialColors)
+    {
+        std::ifstream file(path);
+        if (!file)
+            return;
+
+        std::string currentMaterial;
+        std::string line;
+        while (std::getline(file, line))
+        {
+            std::istringstream lineStream(line);
+            std::string record;
+            lineStream >> record;
+            if (record == "newmtl")
+            {
+                lineStream >> currentMaterial;
+            }
+            else if (record == "Kd" && !currentMaterial.empty())
+            {
+                Engine::Math::Vec3 color{};
+                if (lineStream >> color.x >> color.y >> color.z)
+                    materialColors[currentMaterial] = color;
+            }
+        }
+    }
 
     bool parseObjIndex(const std::string& text, std::size_t count, std::size_t& index)
     {
@@ -94,7 +124,7 @@ namespace Engine::Scene
         const auto addFace = [&mesh](Math::Vec3 normal, const Math::Vec3 (&positions)[6])
         {
             for (const Math::Vec3 position : positions)
-                mesh.vertices.push_back({position, normal});
+                mesh.vertices.push_back({position, normal, {1.0f, 1.0f, 1.0f}});
         };
 
         const Math::Vec3 back[] = {
@@ -147,6 +177,9 @@ namespace Engine::Scene
         std::vector<Math::Vec3> positions;
         std::vector<Math::Vec3> normals;
         Mesh loadedMesh;
+        MaterialColors materialColors;
+        Math::Vec3 currentDiffuseColor{1.0f, 1.0f, 1.0f};
+        const std::filesystem::path objPath(path);
         std::string line;
         std::size_t lineNumber = 0;
         while (std::getline(file, line))
@@ -175,6 +208,21 @@ namespace Engine::Scene
                     return false;
                 }
                 normals.push_back(Math::normalize(normal));
+            }
+            else if (record == "mtllib")
+            {
+                std::string libraryName;
+                while (lineStream >> libraryName)
+                    loadMaterialLibrary(objPath.parent_path() / libraryName, materialColors);
+            }
+            else if (record == "usemtl")
+            {
+                std::string materialName;
+                lineStream >> materialName;
+                const auto material = materialColors.find(materialName);
+                currentDiffuseColor = material == materialColors.end()
+                    ? Math::Vec3{1.0f, 1.0f, 1.0f}
+                    : material->second;
             }
             else if (record == "f")
             {
@@ -212,7 +260,7 @@ namespace Engine::Scene
                         const Math::Vec3 normal = vertex.hasNormal
                             ? normals[vertex.normalIndex]
                             : triangleNormal;
-                        loadedMesh.vertices.push_back({positions[vertex.positionIndex], normal});
+                        loadedMesh.vertices.push_back({positions[vertex.positionIndex], normal, currentDiffuseColor});
                     }
                 }
             }

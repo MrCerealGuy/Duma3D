@@ -1,10 +1,12 @@
 # Small low-poly pyramid used to demonstrate OBJ model loading.
+mtllib pyramid.mtl
 v -0.7 0.0 -0.7
 v 0.7 0.0 -0.7
 v 0.7 0.0 0.7
 v -0.7 0.0 0.7
 v 0.0 1.2 0.0
 
+usemtl WarmStone
 f 1 2 3 4
 f 4 3 5
 f 3 2 5

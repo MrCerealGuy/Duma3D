@@ -250,6 +250,11 @@ namespace Engine::Graphics
                 reinterpret_cast<const void*>(offsetof(Scene::Vertex, normal))
             );
             glEnableVertexAttribArrayPtr(1);
+            glVertexAttribPointerPtr(
+                2, 3, GL_FLOAT, GL_FALSE, sizeof(Scene::Vertex),
+                reinterpret_cast<const void*>(offsetof(Scene::Vertex, diffuseColor))
+            );
+            glEnableVertexAttribArrayPtr(2);
             m_meshes.push_back(gpuMesh);
         }
 

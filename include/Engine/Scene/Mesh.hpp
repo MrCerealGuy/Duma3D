@@ -11,6 +11,7 @@ namespace Engine::Scene
     {
         Math::Vec3 position;
         Math::Vec3 normal;
+        Math::Vec3 diffuseColor{1.0f, 1.0f, 1.0f};
     };
 
     struct Mesh
