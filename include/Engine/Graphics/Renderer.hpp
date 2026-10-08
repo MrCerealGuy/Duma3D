@@ -31,6 +31,10 @@ namespace Engine::Graphics
         HDC m_deviceContext = nullptr;
         unsigned int m_program = 0;
         int m_mvpLocation = -1;
+        int m_albedoLocation = -1;
+        int m_lightDirectionLocation = -1;
+        int m_lightColorLocation = -1;
+        int m_ambientColorLocation = -1;
         std::vector<GpuMesh> m_meshes;
         bool m_initialized = false;
     };

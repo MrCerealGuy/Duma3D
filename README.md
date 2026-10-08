@@ -51,7 +51,7 @@ Danach `build\Duma3D.exe` ausführen. Die Shader-Assets werden in `build\assets`
 
 ## Aktueller Umfang
 
-Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. Eine Szene kann Meshes und platzierte Instanzen verwalten; der aktuelle Demo-Inhalt verwendet ein Würfelmesh mehrfach. Beleuchtung, Materialien, Modellimport und Assetverwaltung gibt es noch nicht. Die Win32-Plattforminitialisierung bleibt in `src/Engine/Application.cpp`.
+Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. Eine Szene kann Meshes, farbige Materialien, eine gerichtete Lichtquelle und platzierte Instanzen verwalten; der Demo-Inhalt verwendet ein Würfelmesh mit drei Materialien mehrfach. Der Renderer berechnet diffuse Beleuchtung mit Umgebungslicht. Texturen, weitergehende Lichtquellen, Modellimport und Assetverwaltung gibt es noch nicht. Die Win32-Plattforminitialisierung bleibt in `src/Engine/Application.cpp`.
 
 ## Struktur
 

@@ -53,6 +53,7 @@ using PFNGLUSEPROGRAMPROC = void (APIENTRY *)(unsigned int);
 using PFNGLDELETEPROGRAMPROC = void (APIENTRY *)(unsigned int);
 using PFNGLGETUNIFORMLOCATIONPROC = int (APIENTRY *)(unsigned int, const char*);
 using PFNGLUNIFORMMATRIX4FVPROC = void (APIENTRY *)(int, int, unsigned char, const float*);
+using PFNGLUNIFORM3FPROC = void (APIENTRY *)(int, float, float, float);
 using PFNGLENABLEVERTEXATTRIBARRAYPROC = void (APIENTRY *)(unsigned int);
 using PFNGLVERTEXATTRIBPOINTERPROC = void (APIENTRY *)(unsigned int, int, unsigned int, unsigned char, int, const void*);
 using PFNGLDELETEBUFFERSPROC = void (APIENTRY *)(int, const unsigned int*);
@@ -78,6 +79,7 @@ static PFNGLUSEPROGRAMPROC glUseProgramPtr;
 static PFNGLDELETEPROGRAMPROC glDeleteProgramPtr;
 static PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocationPtr;
 static PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fvPtr;
+static PFNGLUNIFORM3FPROC glUniform3fPtr;
 static PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArrayPtr;
 static PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointerPtr;
 static PFNGLDELETEBUFFERSPROC glDeleteBuffersPtr;
@@ -142,6 +144,7 @@ namespace Engine::Graphics
         LOAD(glDeleteProgramPtr, "glDeleteProgram");
         LOAD(glGetUniformLocationPtr, "glGetUniformLocation");
         LOAD(glUniformMatrix4fvPtr, "glUniformMatrix4fv");
+        LOAD(glUniform3fPtr, "glUniform3f");
         LOAD(glEnableVertexAttribArrayPtr, "glEnableVertexAttribArray");
         LOAD(glVertexAttribPointerPtr, "glVertexAttribPointer");
 #undef LOAD
@@ -206,7 +209,13 @@ namespace Engine::Graphics
         }
 
         m_mvpLocation = glGetUniformLocationPtr(m_program, "uMVP");
-        return m_mvpLocation >= 0;
+        m_albedoLocation = glGetUniformLocationPtr(m_program, "uAlbedo");
+        m_lightDirectionLocation = glGetUniformLocationPtr(m_program, "uLightDirection");
+        m_lightColorLocation = glGetUniformLocationPtr(m_program, "uLightColor");
+        m_ambientColorLocation = glGetUniformLocationPtr(m_program, "uAmbientColor");
+        return m_mvpLocation >= 0 && m_albedoLocation >= 0 &&
+            m_lightDirectionLocation >= 0 && m_lightColorLocation >= 0 &&
+            m_ambientColorLocation >= 0;
     }
 
     bool Renderer::initialize(HDC deviceContext, const Scene::Scene& scene)
@@ -226,12 +235,20 @@ namespace Engine::Graphics
             glBindBufferPtr(GL_ARRAY_BUFFER, gpuMesh.vertexBuffer);
             glBufferDataPtr(
                 GL_ARRAY_BUFFER,
-                static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(Math::Vec3)),
+                static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(Scene::Vertex)),
                 mesh.vertices.data(),
                 GL_STATIC_DRAW
             );
-            glVertexAttribPointerPtr(0, 3, GL_FLOAT, GL_FALSE, sizeof(Math::Vec3), nullptr);
+            glVertexAttribPointerPtr(
+                0, 3, GL_FLOAT, GL_FALSE, sizeof(Scene::Vertex),
+                reinterpret_cast<const void*>(offsetof(Scene::Vertex, position))
+            );
             glEnableVertexAttribArrayPtr(0);
+            glVertexAttribPointerPtr(
+                1, 3, GL_FLOAT, GL_FALSE, sizeof(Scene::Vertex),
+                reinterpret_cast<const void*>(offsetof(Scene::Vertex, normal))
+            );
+            glEnableVertexAttribArrayPtr(1);
             m_meshes.push_back(gpuMesh);
         }
 
@@ -258,15 +275,21 @@ namespace Engine::Graphics
         );
 
         glUseProgramPtr(m_program);
+        const Scene::DirectionalLight& light = scene.directionalLight();
+        glUniform3fPtr(m_lightDirectionLocation, light.direction.x, light.direction.y, light.direction.z);
+        glUniform3fPtr(m_lightColorLocation, light.color.x, light.color.y, light.color.z);
+        glUniform3fPtr(m_ambientColorLocation, light.ambientColor.x, light.ambientColor.y, light.ambientColor.z);
         for (const Scene::MeshInstance& object : scene.objects())
         {
-            if (object.meshIndex >= m_meshes.size())
+            if (object.meshIndex >= m_meshes.size() || object.materialIndex >= scene.materials().size())
                 continue;
 
             const Math::Mat4 model = Math::translation(object.transform.position);
             const Math::Mat4 mvp = Math::multiply(projection, Math::multiply(view, model));
             const GpuMesh& mesh = m_meshes[object.meshIndex];
+            const Scene::Material& material = scene.materials()[object.materialIndex];
             glUniformMatrix4fvPtr(m_mvpLocation, 1, GL_FALSE, mvp.m);
+            glUniform3fPtr(m_albedoLocation, material.baseColor.x, material.baseColor.y, material.baseColor.z);
             glBindVertexArrayPtr(mesh.vertexArray);
             glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
         }
@@ -302,6 +325,10 @@ namespace Engine::Graphics
             glDeleteProgramPtr(m_program);
         m_program = 0;
         m_mvpLocation = -1;
+        m_albedoLocation = -1;
+        m_lightDirectionLocation = -1;
+        m_lightColorLocation = -1;
+        m_ambientColorLocation = -1;
         m_initialized = false;
         m_deviceContext = nullptr;
     }
