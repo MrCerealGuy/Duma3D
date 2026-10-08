@@ -148,6 +148,56 @@ static PFNGLGENERATEMIPMAPPROC glGenerateMipmapPtr;
 
 namespace
 {
+    struct FrustumPlane
+    {
+        Engine::Math::Vec3 normal;
+        float distance;
+    };
+
+    using Frustum = std::array<FrustumPlane, 6>;
+
+    Frustum extractFrustum(const Engine::Math::Mat4& matrix)
+    {
+        const auto makePlane = [&matrix](float sign, int row)
+        {
+            const int row3 = 3;
+            const float x = matrix.m[row3] + sign * matrix.m[row];
+            const float y = matrix.m[4 + row3] + sign * matrix.m[4 + row];
+            const float z = matrix.m[8 + row3] + sign * matrix.m[8 + row];
+            const float distance = matrix.m[12 + row3] + sign * matrix.m[12 + row];
+            const float length = std::sqrt(x * x + y * y + z * z);
+            if (length <= 1.0e-6f)
+                return FrustumPlane{{0.0f, 0.0f, 0.0f}, std::numeric_limits<float>::infinity()};
+            return FrustumPlane{{x / length, y / length, z / length}, distance / length};
+        };
+
+        return {
+            makePlane(1.0f, 0), makePlane(-1.0f, 0),
+            makePlane(1.0f, 1), makePlane(-1.0f, 1),
+            makePlane(1.0f, 2), makePlane(-1.0f, 2)
+        };
+    }
+
+    bool sphereOutsideFrustum(const Frustum& frustum, Engine::Math::Vec3 center, float radius)
+    {
+        for (const FrustumPlane& plane : frustum)
+        {
+            const float distance = Engine::Math::dot(plane.normal, center) + plane.distance;
+            if (distance < -radius)
+                return true;
+        }
+        return false;
+    }
+
+    Engine::Math::Vec3 transformPoint(const Engine::Math::Mat4& matrix, Engine::Math::Vec3 point)
+    {
+        return {
+            matrix.m[0] * point.x + matrix.m[4] * point.y + matrix.m[8] * point.z + matrix.m[12],
+            matrix.m[1] * point.x + matrix.m[5] * point.y + matrix.m[9] * point.z + matrix.m[13],
+            matrix.m[2] * point.x + matrix.m[6] * point.y + matrix.m[10] * point.z + matrix.m[14]
+        };
+    }
+
     template <typename Interface>
     class ComPtr
     {
@@ -677,6 +727,35 @@ namespace Engine::Graphics
         for (const Scene::Mesh& mesh : scene.meshes())
         {
             GpuMesh gpuMesh;
+            if (!mesh.vertices.empty())
+            {
+                Math::Vec3 minimum = mesh.vertices.front().position;
+                Math::Vec3 maximum = minimum;
+                for (const Scene::Vertex& vertex : mesh.vertices)
+                {
+                    minimum.x = std::min(minimum.x, vertex.position.x);
+                    minimum.y = std::min(minimum.y, vertex.position.y);
+                    minimum.z = std::min(minimum.z, vertex.position.z);
+                    maximum.x = std::max(maximum.x, vertex.position.x);
+                    maximum.y = std::max(maximum.y, vertex.position.y);
+                    maximum.z = std::max(maximum.z, vertex.position.z);
+                }
+                gpuMesh.boundsCenter = {
+                    (minimum.x + maximum.x) * 0.5f,
+                    (minimum.y + maximum.y) * 0.5f,
+                    (minimum.z + maximum.z) * 0.5f
+                };
+                for (const Scene::Vertex& vertex : mesh.vertices)
+                {
+                    const float x = vertex.position.x - gpuMesh.boundsCenter.x;
+                    const float y = vertex.position.y - gpuMesh.boundsCenter.y;
+                    const float z = vertex.position.z - gpuMesh.boundsCenter.z;
+                    gpuMesh.boundsRadius = std::max(
+                        gpuMesh.boundsRadius, std::sqrt(x * x + y * y + z * z)
+                    );
+                }
+                gpuMesh.hasBounds = true;
+            }
             glGenVertexArraysPtr(1, &gpuMesh.vertexArray);
             glBindVertexArrayPtr(gpuMesh.vertexArray);
             glGenBuffersPtr(1, &gpuMesh.vertexBuffer);
@@ -845,6 +924,8 @@ namespace Engine::Graphics
             0.1f,
             100.0f
         );
+        const Math::Mat4 viewProjection = Math::multiply(projection, view);
+        const Frustum cameraFrustum = extractFrustum(viewProjection);
 
         glUseProgramPtr(m_program);
         glUniform1iPtr(m_textureLocation, 0);
@@ -893,6 +974,17 @@ namespace Engine::Graphics
             );
             const Math::Mat4 mvp = Math::multiply(projection, Math::multiply(view, model));
             const GpuMesh& mesh = m_meshes[object.meshIndex];
+            if (mesh.hasBounds)
+            {
+                const Math::Vec3 worldCenter = transformPoint(model, mesh.boundsCenter);
+                const float maximumScale = std::max({
+                    std::abs(object.transform.scale.x),
+                    std::abs(object.transform.scale.y),
+                    std::abs(object.transform.scale.z)
+                });
+                if (sphereOutsideFrustum(cameraFrustum, worldCenter, mesh.boundsRadius * maximumScale))
+                    continue;
+            }
             const Scene::Material& material = scene.materials()[object.materialIndex];
             glUniformMatrix4fvPtr(m_mvpLocation, 1, GL_FALSE, mvp.m);
             glUniformMatrix4fvPtr(m_modelLocation, 1, GL_FALSE, model.m);
