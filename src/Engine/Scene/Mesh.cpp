@@ -280,6 +280,21 @@ namespace Engine::Scene
         return mesh;
     }
 
+    Mesh Mesh::plane(float size)
+    {
+        const float halfSize = size * 0.5f;
+        Mesh mesh;
+        mesh.vertices = {
+            {{-halfSize, 0.0f, -halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
+            {{ halfSize, 0.0f, -halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {size, 0.0f}},
+            {{ halfSize, 0.0f,  halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {size, size}},
+            {{-halfSize, 0.0f,  halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, size}}
+        };
+        mesh.indices = {0, 2, 1, 0, 3, 2};
+        mesh.sections.push_back({0, mesh.indices.size(), {}});
+        return mesh;
+    }
+
     Mesh Mesh::sphere()
     {
         constexpr int longitudeSegments = 24;
