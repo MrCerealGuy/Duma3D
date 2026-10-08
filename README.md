@@ -59,13 +59,13 @@ Danach `build\Duma3D.exe` ausführen. Die Assets werden in `build\assets` neben 
 
 ## Aktueller Umfang
 
-Die Engine wird als wiederverwendbare statische Bibliothek `Duma3DEngine` gebaut. Demo-Szenen, Eingabesteuerung und Einstiegspunkte liegen unabhängig davon unter `src/Demos/<DemoName>`; `Demo_1` ist das aktuelle Beispielprogramm und wird gegen die Engine-Bibliothek gelinkt.
+Die Engine wird als wiederverwendbare statische Bibliothek `Duma3DEngine` gebaut. Demo-Szenen, Eingabesteuerung und Einstiegspunkte liegen unabhängig davon unter `src/Demos/<DemoName>`; `Demo_1` ist das aktuelle Beispielprogramm und wird gegen die Engine-Bibliothek gelinkt. `Engine::World::ChunkWorld` verwaltet einen geladenen Chunk-Bereich, Seed und Koordinaten und setzt die Chunk-Szenen zusammen. Der Inhalt kommt über einen Generator-Callback, sodass Demos eigene Welten erzeugen können.
 
 Das Terrain verwendet pro Programmstart eine zufällig erzeugte Verteilung aus organischen Gras-, Erd-, Fels- und Pflasterflächen. Mehrere räumliche Rauschfelder und zufällige Materialflecken variieren Größe und Form der Geländeoberflächen.
 
 Zusammengefasste prozedurale Meshes ergänzen die Landschaft mit zufällig platzierten Grasbüscheln, Steinclustern, trockenen Ästen und herabgefallenen Herbstblättern. Spielerstart, Häuser und Eingangswege bleiben dabei weitgehend frei.
 
-Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. OBJ-Vertices werden anhand ihrer Attribute dedupliziert; GPU-Indexpuffer verwenden 16 Bit, wenn alle Indizes passen, sonst 32 Bit. Haupt- und Schattenpass überspringen Objekte, deren Mesh-Begrenzungskugel außerhalb des jeweiligen Kamera- oder Lichtfrustums liegt; das Lichtfrustum wird aus den Szenenobjekten im näheren Spielerumfeld berechnet. Die Demo-Szene wird bei jedem Programmstart prozedural aufgebaut und variiert Hausmaße, Tür- und Raumaufteilung, Fenster, Giebel- oder Flachdächer, Farben, Raumlichter und Baumstandorte. Kachelbare PPM-Oberflächentexturen geben Gelände, Putzfassaden, Dächer, Holzböden und -details, Steinwege, Rinde und Baumkronen sichtbare Struktur. Das Gelände wird in 64×64-Meter-Chunks generiert und folgt einer weltweiten, nahtlosen Höhenfunktion. Beim Bewegen lädt die Demo einen 5×5-Chunks großen Bereich um den Spieler; jeder Chunk erhält anhand seiner Weltkoordinaten eine feste, durch den Welt-Seed bestimmte Dekoration aus Vegetation und gegebenenfalls Häusern. So bleibt ein Chunk auch nach dem Verlassen und erneuten Laden gleich. Der Welt-Seed wird bei jedem Programmstart neu erzeugt. Die nahe Umgebung enthält begehbare Häuser mit jeweils einem vorderen und hinteren Raum sowie Wege und Bäume. Die Innenwand verläuft parallel zur Eingangswand; die Türöffnung verbindet beide Räume. Als prozedurale Grundmeshes gibt es einen Würfel und eine UV-Kugel mit glatten Normalen. Die Beleuchtung kombiniert Umgebungslicht, ein gerichtetes Licht mit 3×3-PCF-Schatten, bis zu vier abschwächende Punktlichter, Blinn-Phong-Glanz und Selbstleuchten. Farbtexturen werden als sRGB dekodiert; Beleuchtung und Reinhard-Tonemapping erfolgen linear, danach wird die Ausgabe wieder sRGB-kodiert. Der Wavefront-Importer liest Positionen, Normalen, UV-Texturkoordinaten, Flächen und Smoothing-Gruppen (`s`), trianguliert Polygonflächen und berechnet fehlende Normalen flach oder gruppenweise. MTL-Diffusfarben (`Kd`), Glanzfarben (`Ks`), Selbstleuchtfarben (`Ke`), Glanzschärfe (`Ns`) und einfache `map_Kd`-Pfade werden pro Materialabschnitt übernommen; diffuse Texturen werden mit generierten Mipmaps und trilinearer Filterung dargestellt und bei identischen Pfaden gemeinsam auf der GPU gehalten. Der Texturloader unterstützt P3- und P6-PPM sowie PNG, JPEG und BMP über Windows Imaging Component; erweiterte MTL-Map-Optionen werden noch nicht unterstützt. Die Win32-Anwendung und die konkrete Demo-Szene liegen unter `src/Demos/Demo_1`.
+Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. OBJ-Vertices werden anhand ihrer Attribute dedupliziert; GPU-Indexpuffer verwenden 16 Bit, wenn alle Indizes passen, sonst 32 Bit. Haupt- und Schattenpass überspringen Objekte, deren Mesh-Begrenzungskugel außerhalb des jeweiligen Kamera- oder Lichtfrustums liegt; das Lichtfrustum wird aus den Szenenobjekten im näheren Spielerumfeld berechnet. Die Demo-Szene wird bei jedem Programmstart prozedural aufgebaut und variiert Hausmaße, Tür- und Raumaufteilung, Fenster, Giebel- oder Flachdächer, Farben, Raumlichter und Baumstandorte. Kachelbare PPM-Oberflächentexturen geben Gelände, Putzfassaden, Dächer, Holzböden und -details, Steinwege, Rinde und Baumkronen sichtbare Struktur. Das Gelände wird in 64×64-Meter-Chunks generiert und folgt einer weltweiten, nahtlosen Höhenfunktion. `Engine::World::ChunkWorld` hält einen 5×5-Chunks großen Bereich um den Spieler geladen, cached wiederverwendbare Chunk-Szenen und setzt daraus die Szene für den Renderer zusammen. Der Demo-Generator legt Gelände, Vegetation und gegebenenfalls Häuser pro Chunk-Koordinate und Welt-Seed fest; beim erneuten Laden bleibt der Inhalt gleich. Der Seed wird bei jedem Programmstart neu erzeugt. Die nahe Umgebung enthält begehbare Häuser mit jeweils einem vorderen und hinteren Raum sowie Wege und Bäume. Die Innenwand verläuft parallel zur Eingangswand; die Türöffnung verbindet beide Räume. Als prozedurale Grundmeshes gibt es einen Würfel und eine UV-Kugel mit glatten Normalen. Die Beleuchtung kombiniert Umgebungslicht, ein gerichtetes Licht mit 3×3-PCF-Schatten, bis zu vier abschwächende Punktlichter, Blinn-Phong-Glanz und Selbstleuchten. Farbtexturen werden als sRGB dekodiert; Beleuchtung und Reinhard-Tonemapping erfolgen linear, danach wird die Ausgabe wieder sRGB-kodiert. Der Wavefront-Importer liest Positionen, Normalen, UV-Texturkoordinaten, Flächen und Smoothing-Gruppen (`s`), trianguliert Polygonflächen und berechnet fehlende Normalen flach oder gruppenweise. MTL-Diffusfarben (`Kd`), Glanzfarben (`Ks`), Selbstleuchtfarben (`Ke`), Glanzschärfe (`Ns`) und einfache `map_Kd`-Pfade werden pro Materialabschnitt übernommen; diffuse Texturen werden mit generierten Mipmaps und trilinearer Filterung dargestellt und bei identischen Pfaden gemeinsam auf der GPU gehalten. Der Texturloader unterstützt P3- und P6-PPM sowie PNG, JPEG und BMP über Windows Imaging Component; erweiterte MTL-Map-Optionen werden noch nicht unterstützt. Die Win32-Anwendung und die konkrete Demo-Szene liegen unter `src/Demos/Demo_1`.
 
 ## Struktur
 
@@ -106,9 +106,11 @@ Duma3D/
 │       │   └── Renderer.hpp
 │       ├── Math/
 │       │   └── Math.hpp
-│       └── Scene/
-│           ├── Mesh.hpp
-│           └── Scene.hpp
+│       ├── Scene/
+│       │   ├── Mesh.hpp
+│       │   └── Scene.hpp
+│       └── World/
+│           └── ChunkWorld.hpp
 ├── src/
 │   └── Engine/
 │       ├── Assets/
@@ -118,9 +120,11 @@ Duma3D/
 │       │   └── Renderer.cpp
 │       ├── Math/
 │       │   └── Math.cpp
-│       └── Scene/
-│           ├── Mesh.cpp
-│           └── Scene.cpp
+│       ├── Scene/
+│       │   ├── Mesh.cpp
+│       │   └── Scene.cpp
+│       └── World/
+│           └── ChunkWorld.cpp
 │   └── Demos/
 │       └── Demo_1/
 │           ├── Application.hpp

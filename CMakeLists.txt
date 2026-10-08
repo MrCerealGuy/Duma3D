@@ -18,6 +18,7 @@ add_library(Duma3DEngine STATIC
     src/Engine/Math/Math.cpp
     src/Engine/Scene/Mesh.cpp
     src/Engine/Scene/Scene.cpp
+    src/Engine/World/ChunkWorld.cpp
 )
 
 target_include_directories(Duma3DEngine

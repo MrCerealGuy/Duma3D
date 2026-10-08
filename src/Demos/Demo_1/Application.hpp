@@ -2,9 +2,9 @@
 
 #include "Engine/Graphics/Renderer.hpp"
 #include "Engine/Scene/Scene.hpp"
+#include "Engine/World/ChunkWorld.hpp"
 
 #include <windows.h>
-#include <cstdint>
 #include <string>
 
 class Application {
@@ -46,8 +46,6 @@ private:
     bool keys_[256]{};
     Engine::Graphics::Camera camera_{{0.0f, 1.7f, 9.0f}};
     Engine::Graphics::Renderer renderer_;
-    std::uint32_t worldSeed_ = 0;
-    int loadedChunkX_ = 0;
-    int loadedChunkZ_ = 0;
+    Engine::World::ChunkWorld world_;
     Engine::Scene::Scene scene_;
 };

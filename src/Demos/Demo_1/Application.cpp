@@ -30,12 +30,6 @@ namespace
     constexpr float playerHeight = 1.8f;
     constexpr int worldChunkRadius = 2;
 
-    int chunkCoordinate(float position)
-    {
-        return static_cast<int>(std::floor((position + Duma3D::Demos::Demo_1::worldChunkSize * 0.5f) /
-            Duma3D::Demos::Demo_1::worldChunkSize));
-    }
-
     template <typename Function>
     Function getWglFunction(const char* name)
     {
@@ -76,9 +70,12 @@ Application::Application(int width, int height, std::wstring title)
     : width_(width),
       height_(height),
       title_(std::move(title)),
-      worldSeed_(std::random_device{}()),
-      scene_(Duma3D::Demos::Demo_1::makeDemoWorld(0, 0, worldChunkRadius, worldSeed_))
+      world_(
+          {Duma3D::Demos::Demo_1::worldChunkSize, worldChunkRadius, std::random_device{}()},
+          Duma3D::Demos::Demo_1::generateDemoChunk)
 {
+    world_.updateForPosition(0.0f, 0.0f);
+    scene_ = world_.scene();
 }
 
 Application::~Application()
@@ -260,7 +257,8 @@ void Application::update(float dt)
         camera_.setPosition(afterForward);
 
     Engine::Math::Vec3 position = camera_.position();
-    const float groundHeight = Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(position.x, position.z, worldSeed_);
+    const float groundHeight = Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(
+        position.x, position.z, world_.config().seed);
     float feet = position.y - playerEyeHeight;
     const bool onGround = feet <= groundHeight + 0.02f && verticalVelocity_ <= 0.0f;
     if (jumpRequested_ && onGround)
@@ -301,23 +299,17 @@ void Application::update(float dt)
 void Application::updateWorldChunks()
 {
     const Engine::Math::Vec3& position = camera_.position();
-    const int chunkX = chunkCoordinate(position.x);
-    const int chunkZ = chunkCoordinate(position.z);
-    if (chunkX == loadedChunkX_ && chunkZ == loadedChunkZ_)
+    if (!world_.updateForPosition(position.x, position.z))
         return;
 
-    Engine::Scene::Scene nextScene = Duma3D::Demos::Demo_1::makeDemoWorld(
-        chunkX, chunkZ, worldChunkRadius, worldSeed_
-    );
+    const Engine::Scene::Scene& nextScene = world_.scene();
     if (!renderer_.updateScene(nextScene))
     {
         OutputDebugStringW(L"Duma3D: Chunk-Szene konnte nicht an die GPU übertragen werden.\n");
         running_ = false;
         return;
     }
-    scene_ = std::move(nextScene);
-    loadedChunkX_ = chunkX;
-    loadedChunkZ_ = chunkZ;
+    scene_ = nextScene;
 }
 
 void Application::toggleMovementMode()
@@ -328,7 +320,8 @@ void Application::toggleMovementMode()
     if (gravityMode_)
     {
         Engine::Math::Vec3 position = camera_.position();
-        position.y = Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(position.x, position.z, worldSeed_) + playerEyeHeight;
+        position.y = Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(
+            position.x, position.z, world_.config().seed) + playerEyeHeight;
         camera_.setPosition(position);
     }
 
@@ -439,7 +432,8 @@ int Application::run()
     }
 
     Engine::Math::Vec3 startPosition = camera_.position();
-    startPosition.y = Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(startPosition.x, startPosition.z, worldSeed_) + playerEyeHeight;
+    startPosition.y = Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(
+        startPosition.x, startPosition.z, world_.config().seed) + playerEyeHeight;
     camera_.setPosition(startPosition);
     updateHud();
 

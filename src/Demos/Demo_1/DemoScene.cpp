@@ -876,79 +876,13 @@ namespace Duma3D::Demos::Demo_1
     }
     }
 
-    Scene makeDemoWorld(int centerChunkX, int centerChunkZ, int radius, std::uint32_t seed)
+    Scene generateDemoChunk(Engine::World::ChunkCoordinate coordinate, std::uint32_t seed)
     {
-        struct ChunkCoordinate
-        {
-            int x;
-            int z;
-        };
-        std::vector<ChunkCoordinate> chunks;
-        for (int z = centerChunkZ - radius; z <= centerChunkZ + radius; ++z)
-        {
-            for (int x = centerChunkX - radius; x <= centerChunkX + radius; ++x)
-                chunks.push_back({x, z});
-        }
-        std::sort(chunks.begin(), chunks.end(), [centerChunkX, centerChunkZ](ChunkCoordinate a, ChunkCoordinate b)
-        {
-            const int distanceA = (a.x - centerChunkX) * (a.x - centerChunkX) +
-                (a.z - centerChunkZ) * (a.z - centerChunkZ);
-            const int distanceB = (b.x - centerChunkX) * (b.x - centerChunkX) +
-                (b.z - centerChunkZ) * (b.z - centerChunkZ);
-            return distanceA < distanceB;
-        });
-
-        Scene world;
-        for (const ChunkCoordinate coordinate : chunks)
-        {
-            // Decoration depends only on the world coordinate, never on the player's
-            // current streaming window, so a chunk looks the same when revisited.
-            const std::uint32_t chunkSeed = makeChunkSeed(seed, coordinate.x, coordinate.z);
-            const bool decorate = (coordinate.x == 0 && coordinate.z == 0) || chunkSeed % 4u == 0u;
-            Scene chunk = makeDemoChunk(coordinate.x, coordinate.z, seed, decorate);
-            const float offsetX = static_cast<float>(coordinate.x) * worldChunkSize;
-            const float offsetZ = static_cast<float>(coordinate.z) * worldChunkSize;
-            std::vector<std::size_t> meshIndices;
-            std::vector<std::size_t> materialIndices;
-            meshIndices.reserve(chunk.meshes().size());
-            materialIndices.reserve(chunk.materials().size());
-            for (const Engine::Scene::Material& material : chunk.materials())
-                materialIndices.push_back(world.addMaterial(material));
-            for (const Mesh& mesh : chunk.meshes())
-                meshIndices.push_back(world.addMesh(mesh));
-            for (const Engine::Scene::MeshInstance& object : chunk.objects())
-            {
-                Engine::Scene::Transform transform = object.transform;
-                transform.position.x += offsetX;
-                transform.position.z += offsetZ;
-                world.addObject(meshIndices[object.meshIndex], materialIndices[object.materialIndex], transform);
-            }
-            for (const Engine::Scene::CollisionBox& collider : chunk.colliders())
-            {
-                const Math::Vec3 center{
-                    (collider.minimum.x + collider.maximum.x) * 0.5f + offsetX,
-                    (collider.minimum.y + collider.maximum.y) * 0.5f,
-                    (collider.minimum.z + collider.maximum.z) * 0.5f + offsetZ
-                };
-                const Math::Vec3 size{
-                    collider.maximum.x - collider.minimum.x,
-                    collider.maximum.y - collider.minimum.y,
-                    collider.maximum.z - collider.minimum.z
-                };
-                world.addBoxCollider(center, size);
-            }
-            if (coordinate.x == centerChunkX && coordinate.z == centerChunkZ)
-            {
-                for (const Engine::Scene::PointLight& light : chunk.pointLights())
-                {
-                    Engine::Scene::PointLight worldLight = light;
-                    worldLight.position.x += offsetX;
-                    worldLight.position.z += offsetZ;
-                    world.addPointLight(worldLight);
-                }
-            }
-        }
-        return world;
+        // World features are deterministic for a coordinate and world seed, even
+        // after the engine unloads and later regenerates this chunk.
+        const std::uint32_t chunkSeed = makeChunkSeed(seed, coordinate.x, coordinate.z);
+        const bool decorate = (coordinate.x == 0 && coordinate.z == 0) || chunkSeed % 4u == 0u;
+        return makeDemoChunk(coordinate.x, coordinate.z, seed, decorate);
     }
 
 }
