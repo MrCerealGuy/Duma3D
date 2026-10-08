@@ -59,7 +59,7 @@ Danach `build\Duma3D.exe` ausführen. Die Assets werden in `build\assets` neben 
 
 ## Aktueller Umfang
 
-Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. OBJ-Vertices werden anhand ihrer Attribute dedupliziert; GPU-Indexpuffer verwenden 16 Bit, wenn alle Indizes passen, sonst 32 Bit. Haupt- und Schattenpass überspringen Objekte, deren Mesh-Begrenzungskugel außerhalb des jeweiligen Kamera- oder Lichtfrustums liegt; das Lichtfrustum wird aus den Szenenobjekten berechnet. Die Demo-Szene wird bei jedem Programmstart prozedural aufgebaut und variiert Hausmaße, Tür- und Raumaufteilung, Fenster, Giebel- oder Flachdächer, Farben, Raumlichter und Baumstandorte. Sie enthält hügeliges Gelände, zwei begehbare Häuser mit jeweils einem vorderen und hinteren Raum sowie Wege und Bäume. Die Innenwand verläuft parallel zur Eingangswand; die Türöffnung verbindet beide Räume. Als prozedurale Grundmeshes gibt es einen Würfel und eine UV-Kugel mit glatten Normalen. Die Beleuchtung kombiniert Umgebungslicht, ein gerichtetes Licht mit 3×3-PCF-Schatten, bis zu vier abschwächende Punktlichter, Blinn-Phong-Glanz und Selbstleuchten. Farbtexturen werden als sRGB dekodiert; Beleuchtung und Reinhard-Tonemapping erfolgen linear, danach wird die Ausgabe wieder sRGB-kodiert. Der Wavefront-Importer liest Positionen, Normalen, UV-Texturkoordinaten, Flächen und Smoothing-Gruppen (`s`), trianguliert Polygonflächen und berechnet fehlende Normalen flach oder gruppenweise. MTL-Diffusfarben (`Kd`), Glanzfarben (`Ks`), Selbstleuchtfarben (`Ke`), Glanzschärfe (`Ns`) und einfache `map_Kd`-Pfade werden pro Materialabschnitt übernommen; diffuse Texturen werden mit generierten Mipmaps und trilinearer Filterung dargestellt und bei identischen Pfaden gemeinsam auf der GPU gehalten. Der Texturloader unterstützt P3- und P6-PPM sowie PNG, JPEG und BMP über Windows Imaging Component; erweiterte MTL-Map-Optionen werden noch nicht unterstützt. Die Win32-Plattforminitialisierung bleibt in `src/Engine/Application.cpp`.
+Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. OBJ-Vertices werden anhand ihrer Attribute dedupliziert; GPU-Indexpuffer verwenden 16 Bit, wenn alle Indizes passen, sonst 32 Bit. Haupt- und Schattenpass überspringen Objekte, deren Mesh-Begrenzungskugel außerhalb des jeweiligen Kamera- oder Lichtfrustums liegt; das Lichtfrustum wird aus den Szenenobjekten berechnet. Die Demo-Szene wird bei jedem Programmstart prozedural aufgebaut und variiert Hausmaße, Tür- und Raumaufteilung, Fenster, Giebel- oder Flachdächer, Farben, Raumlichter und Baumstandorte. Kachelbare PPM-Oberflächentexturen geben Gelände, Putzfassaden, Dächer, Holzböden und -details, Steinwege, Rinde und Baumkronen sichtbare Struktur. Die Szene enthält hügeliges Gelände, zwei begehbare Häuser mit jeweils einem vorderen und hinteren Raum sowie Wege und Bäume. Die Innenwand verläuft parallel zur Eingangswand; die Türöffnung verbindet beide Räume. Als prozedurale Grundmeshes gibt es einen Würfel und eine UV-Kugel mit glatten Normalen. Die Beleuchtung kombiniert Umgebungslicht, ein gerichtetes Licht mit 3×3-PCF-Schatten, bis zu vier abschwächende Punktlichter, Blinn-Phong-Glanz und Selbstleuchten. Farbtexturen werden als sRGB dekodiert; Beleuchtung und Reinhard-Tonemapping erfolgen linear, danach wird die Ausgabe wieder sRGB-kodiert. Der Wavefront-Importer liest Positionen, Normalen, UV-Texturkoordinaten, Flächen und Smoothing-Gruppen (`s`), trianguliert Polygonflächen und berechnet fehlende Normalen flach oder gruppenweise. MTL-Diffusfarben (`Kd`), Glanzfarben (`Ks`), Selbstleuchtfarben (`Ke`), Glanzschärfe (`Ns`) und einfache `map_Kd`-Pfade werden pro Materialabschnitt übernommen; diffuse Texturen werden mit generierten Mipmaps und trilinearer Filterung dargestellt und bei identischen Pfaden gemeinsam auf der GPU gehalten. Der Texturloader unterstützt P3- und P6-PPM sowie PNG, JPEG und BMP über Windows Imaging Component; erweiterte MTL-Map-Optionen werden noch nicht unterstützt. Die Win32-Plattforminitialisierung bleibt in `src/Engine/Application.cpp`.
 
 ## Struktur
 
@@ -69,6 +69,15 @@ Duma3D/
 │   ├── launch.json
 │   └── tasks.json
 ├── assets/
+│   ├── textures/
+│   │   ├── grass.ppm
+│   │   ├── plaster_*.ppm
+│   │   ├── roof_*.ppm
+│   │   ├── wood_floor.ppm
+│   │   ├── dark_wood.ppm
+│   │   ├── cobblestone.ppm
+│   │   ├── bark.ppm
+│   │   └── foliage.ppm
 │   ├── models/
 │   │   ├── pyramid.mtl
 │   │   ├── pyramid.obj

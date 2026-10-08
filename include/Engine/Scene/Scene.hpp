@@ -3,6 +3,7 @@
 #include "Engine/Scene/Mesh.hpp"
 
 #include <cstddef>
+#include <string>
 #include <vector>
 
 namespace Engine::Scene
@@ -17,6 +18,7 @@ namespace Engine::Scene
     struct Material
     {
         Math::Vec3 baseColor{1.0f, 1.0f, 1.0f};
+        std::string diffuseTexturePath;
     };
 
     struct DirectionalLight

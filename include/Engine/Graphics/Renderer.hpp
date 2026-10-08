@@ -25,6 +25,7 @@ namespace Engine::Graphics
             unsigned int texture = 0;
             int firstIndex = 0;
             int indexCount = 0;
+            bool hasDiffuseTexture = false;
         };
 
         struct GpuMesh
@@ -70,6 +71,7 @@ namespace Engine::Graphics
         std::array<int, Scene::Scene::maximumPointLights> m_pointLightIntensityLocations{};
         std::array<int, Scene::Scene::maximumPointLights> m_pointLightAttenuationLocations{};
         std::vector<GpuMesh> m_meshes;
+        std::vector<unsigned int> m_materialTextures;
         std::vector<unsigned int> m_textures;
         bool m_initialized = false;
     };

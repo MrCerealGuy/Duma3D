@@ -724,6 +724,35 @@ namespace Engine::Graphics
 
         m_meshes.reserve(scene.meshes().size());
         std::unordered_map<std::wstring, unsigned int> textureCache;
+        const auto loadTexture = [this, &textureCache](const std::string& path)
+        {
+            const std::wstring key = textureCacheKey(path);
+            if (const auto cached = textureCache.find(key); cached != textureCache.end())
+                return cached->second;
+
+            ImageData image;
+            if (!path.empty() && !loadImage(path, image))
+                OutputDebugStringA(("Could not load texture: " + path + "\n").c_str());
+            unsigned int texture = 0;
+            glGenTextures(1, &texture);
+            m_textures.push_back(texture);
+            glBindTexture(GL_TEXTURE_2D, texture);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, image.width, image.height, 0,
+                GL_RGB, GL_UNSIGNED_BYTE, image.rgb.data());
+            glGenerateMipmapPtr(GL_TEXTURE_2D);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+            textureCache.emplace(key, texture);
+            return texture;
+        };
+        m_materialTextures.reserve(scene.materials().size());
+        for (const Scene::Material& material : scene.materials())
+            m_materialTextures.push_back(loadTexture(material.diffuseTexturePath));
+
         for (const Scene::Mesh& mesh : scene.meshes())
         {
             GpuMesh gpuMesh;
@@ -846,40 +875,13 @@ namespace Engine::Graphics
             );
             glEnableVertexAttribArrayPtr(6);
 
-            const auto createSection = [this, &gpuMesh, &textureCache](const Scene::MeshSection& section)
+            const auto createSection = [&gpuMesh, &loadTexture](const Scene::MeshSection& section)
             {
-                const std::wstring key = textureCacheKey(section.diffuseTexturePath);
-                const auto cachedTexture = textureCache.find(key);
                 GpuSection gpuSection;
                 gpuSection.firstIndex = static_cast<int>(section.firstIndex);
                 gpuSection.indexCount = static_cast<int>(section.indexCount);
-                if (cachedTexture != textureCache.end())
-                {
-                    gpuSection.texture = cachedTexture->second;
-                    gpuMesh.sections.push_back(gpuSection);
-                    return;
-                }
-
-                ImageData image;
-                if (!section.diffuseTexturePath.empty() && !loadImage(section.diffuseTexturePath, image))
-                {
-                    OutputDebugStringA(("Could not load texture: " + section.diffuseTexturePath + "\n").c_str());
-                }
-                glGenTextures(1, &gpuSection.texture);
-                m_textures.push_back(gpuSection.texture);
-                glBindTexture(GL_TEXTURE_2D, gpuSection.texture);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-                glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-                glTexImage2D(
-                    GL_TEXTURE_2D, 0, GL_SRGB8, image.width, image.height, 0,
-                    GL_RGB, GL_UNSIGNED_BYTE, image.rgb.data()
-                );
-                glGenerateMipmapPtr(GL_TEXTURE_2D);
-                glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-                textureCache.emplace(key, gpuSection.texture);
+                gpuSection.hasDiffuseTexture = !section.diffuseTexturePath.empty();
+                gpuSection.texture = loadTexture(section.diffuseTexturePath);
                 gpuMesh.sections.push_back(gpuSection);
             };
 
@@ -1086,13 +1088,17 @@ namespace Engine::Graphics
                     continue;
             }
             const Scene::Material& material = scene.materials()[object.materialIndex];
+            const unsigned int materialTexture = object.materialIndex < m_materialTextures.size()
+                ? m_materialTextures[object.materialIndex]
+                : 0;
             glUniformMatrix4fvPtr(m_mvpLocation, 1, GL_FALSE, mvp.m);
             glUniformMatrix4fvPtr(m_modelLocation, 1, GL_FALSE, model.m);
             glUniform3fPtr(m_albedoLocation, material.baseColor.x, material.baseColor.y, material.baseColor.z);
             glBindVertexArrayPtr(mesh.vertexArray);
             for (const GpuSection& section : mesh.sections)
             {
-                glBindTexture(GL_TEXTURE_2D, section.texture);
+                glBindTexture(GL_TEXTURE_2D,
+                    section.hasDiffuseTexture ? section.texture : materialTexture);
                 const std::uintptr_t indexOffset =
                     static_cast<std::uintptr_t>(section.firstIndex) * mesh.indexStride;
                 glDrawElements(
@@ -1131,6 +1137,7 @@ namespace Engine::Graphics
             if (texture)
                 glDeleteTextures(1, &texture);
         m_textures.clear();
+        m_materialTextures.clear();
         m_meshes.clear();
     }
 

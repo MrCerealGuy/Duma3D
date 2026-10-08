@@ -73,7 +73,7 @@ namespace Engine::Scene
                     mesh.vertices.push_back({
                         {x, y, z}, normal,
                         {grassVariation, grassVariation, grassVariation},
-                        {u * 8.0f, v * 8.0f}
+                        {u * 44.0f, v * 44.0f}
                     });
                 }
             }
@@ -92,7 +92,7 @@ namespace Engine::Scene
                     });
                 }
             }
-            mesh.sections.push_back({0, mesh.indices.size(), {}});
+            mesh.sections.push_back({0, mesh.indices.size(), "assets/textures/grass.ppm"});
             return mesh;
         }
 
@@ -102,12 +102,12 @@ namespace Engine::Scene
             const float halfDepth = depth * 0.5f;
             Mesh mesh;
             mesh.vertices = {
-                {{-halfWidth, 0.0f, halfDepth}, {0.0f, 0.0f, 1.0f}},
-                {{ halfWidth, 0.0f, halfDepth}, {0.0f, 0.0f, 1.0f}},
-                {{0.0f, peakHeight, halfDepth}, {0.0f, 0.0f, 1.0f}},
-                {{-halfWidth, 0.0f,-halfDepth}, {0.0f, 0.0f,-1.0f}},
-                {{ halfWidth, 0.0f,-halfDepth}, {0.0f, 0.0f,-1.0f}},
-                {{0.0f, peakHeight,-halfDepth}, {0.0f, 0.0f,-1.0f}}
+                {{-halfWidth, 0.0f, halfDepth}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
+                {{ halfWidth, 0.0f, halfDepth}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
+                {{0.0f, peakHeight, halfDepth}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}, {0.5f, 1.0f}},
+                {{-halfWidth, 0.0f,-halfDepth}, {0.0f, 0.0f,-1.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
+                {{ halfWidth, 0.0f,-halfDepth}, {0.0f, 0.0f,-1.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
+                {{0.0f, peakHeight,-halfDepth}, {0.0f, 0.0f,-1.0f}, {1.0f, 1.0f, 1.0f}, {0.5f, 1.0f}}
             };
             mesh.indices = {0, 1, 2, 3, 5, 4};
             mesh.sections.push_back({0, mesh.indices.size(), {}});
@@ -364,27 +364,27 @@ namespace Engine::Scene
         const std::size_t ground = scene.addMesh(makeLandscape());
         const std::size_t cube = scene.addMesh(Mesh::cube());
         const std::size_t sphere = scene.addMesh(Mesh::sphere());
-        const std::size_t groundMaterial = scene.addMaterial({{0.5f, 0.72f, 0.38f}});
+        const std::size_t groundMaterial = scene.addMaterial({{0.92f, 0.92f, 0.92f}, "assets/textures/grass.ppm"});
         const std::array<std::size_t, 3> wallMaterials = {
-            scene.addMaterial({{0.78f, 0.7f, 0.58f}}),
-            scene.addMaterial({{0.62f, 0.72f, 0.78f}}),
-            scene.addMaterial({{0.61f, 0.73f, 0.55f}})
+            scene.addMaterial({{0.95f, 0.92f, 0.88f}, "assets/textures/plaster_ochre.ppm"}),
+            scene.addMaterial({{0.87f, 0.91f, 0.95f}, "assets/textures/plaster_blue.ppm"}),
+            scene.addMaterial({{0.87f, 0.93f, 0.85f}, "assets/textures/plaster_olive.ppm"})
         };
         const std::array<std::size_t, 3> roofMaterials = {
-            scene.addMaterial({{0.42f, 0.16f, 0.1f}}),
-            scene.addMaterial({{0.18f, 0.25f, 0.32f}}),
-            scene.addMaterial({{0.53f, 0.38f, 0.16f}})
+            scene.addMaterial({{0.95f, 0.91f, 0.88f}, "assets/textures/roof_terracotta.ppm"}),
+            scene.addMaterial({{0.9f, 0.93f, 0.96f}, "assets/textures/roof_slate.ppm"}),
+            scene.addMaterial({{0.94f, 0.91f, 0.82f}, "assets/textures/roof_wood.ppm"})
         };
-        const std::size_t floor = scene.addMaterial({{0.52f, 0.32f, 0.18f}});
-        const std::size_t trim = scene.addMaterial({{0.3f, 0.18f, 0.1f}});
-        const std::size_t path = scene.addMaterial({{0.5f, 0.48f, 0.4f}});
-        const std::size_t bark = scene.addMaterial({{0.28f, 0.16f, 0.08f}});
+        const std::size_t floor = scene.addMaterial({{0.94f, 0.91f, 0.85f}, "assets/textures/wood_floor.ppm"});
+        const std::size_t trim = scene.addMaterial({{0.86f, 0.84f, 0.8f}, "assets/textures/dark_wood.ppm"});
+        const std::size_t path = scene.addMaterial({{0.93f, 0.92f, 0.88f}, "assets/textures/cobblestone.ppm"});
+        const std::size_t bark = scene.addMaterial({{0.92f, 0.88f, 0.82f}, "assets/textures/bark.ppm"});
         const std::array<std::size_t, 3> foliageMaterials = {
-            scene.addMaterial({{0.24f, 0.52f, 0.2f}}),
-            scene.addMaterial({{0.36f, 0.56f, 0.22f}}),
-            scene.addMaterial({{0.18f, 0.42f, 0.25f}})
+            scene.addMaterial({{0.86f, 0.96f, 0.82f}, "assets/textures/foliage.ppm"}),
+            scene.addMaterial({{0.97f, 0.88f, 0.72f}, "assets/textures/foliage.ppm"}),
+            scene.addMaterial({{0.78f, 0.91f, 0.86f}, "assets/textures/foliage.ppm"})
         };
-        const std::size_t green = scene.addMaterial({{0.18f, 0.72f, 0.3f}});
+        const std::size_t green = scene.addMaterial({{0.18f, 0.72f, 0.3f}, {}});
         const std::array<Math::Vec3, 6> roomLightPalette = {{
             {1.0f, 0.48f, 0.2f}, {0.2f, 0.42f, 1.0f},
             {0.25f, 0.9f, 0.3f}, {1.0f, 0.2f, 0.5f},
