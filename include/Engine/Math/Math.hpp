@@ -31,5 +31,6 @@ namespace Engine::Math
     Mat4 composeTransform(Vec3 position, Vec3 rotationDegrees, Vec3 scale);
     Mat4 multiply(const Mat4& a, const Mat4& b);
     Mat4 perspective(float fovDegrees, float aspect, float nearPlane, float farPlane);
+    Mat4 orthographic(float left, float right, float bottom, float top, float nearPlane, float farPlane);
     Mat4 lookAt(Vec3 eye, Vec3 center, Vec3 up);
 }

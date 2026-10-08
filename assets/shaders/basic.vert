@@ -7,12 +7,14 @@ layout(location = 4) in vec3 aSpecularColor;
 layout(location = 5) in float aShininess;
 uniform mat4 uMVP;
 uniform mat4 uModel;
+uniform mat4 uLightSpaceMatrix;
 out vec3 vNormal;
 out vec3 vDiffuseColor;
 out vec2 vTexCoord;
 out vec3 vWorldPosition;
 out vec3 vSpecularColor;
 out float vShininess;
+out vec4 vLightSpacePosition;
 void main() {
     gl_Position = uMVP * vec4(aPos, 1.0);
     vec4 worldPosition = uModel * vec4(aPos, 1.0);
@@ -22,4 +24,5 @@ void main() {
     vTexCoord = aTexCoord;
     vSpecularColor = aSpecularColor;
     vShininess = aShininess;
+    vLightSpacePosition = uLightSpaceMatrix * worldPosition;
 }

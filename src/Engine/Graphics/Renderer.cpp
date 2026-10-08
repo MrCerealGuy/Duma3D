@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cctype>
+#include <cmath>
 #include <cstdint>
 #include <fstream>
 #include <limits>
@@ -19,6 +20,30 @@
 #endif
 #ifndef GL_ELEMENT_ARRAY_BUFFER
 #define GL_ELEMENT_ARRAY_BUFFER 0x8893
+#endif
+#ifndef GL_FRAMEBUFFER
+#define GL_FRAMEBUFFER 0x8D40
+#endif
+#ifndef GL_DEPTH_ATTACHMENT
+#define GL_DEPTH_ATTACHMENT 0x8D00
+#endif
+#ifndef GL_FRAMEBUFFER_COMPLETE
+#define GL_FRAMEBUFFER_COMPLETE 0x8CD5
+#endif
+#ifndef GL_DEPTH_COMPONENT24
+#define GL_DEPTH_COMPONENT24 0x81A6
+#endif
+#ifndef GL_TEXTURE0
+#define GL_TEXTURE0 0x84C0
+#endif
+#ifndef GL_TEXTURE1
+#define GL_TEXTURE1 0x84C1
+#endif
+#ifndef GL_CLAMP_TO_BORDER
+#define GL_CLAMP_TO_BORDER 0x812D
+#endif
+#ifndef GL_NONE
+#define GL_NONE 0
 #endif
 #ifndef GL_STATIC_DRAW
 #define GL_STATIC_DRAW 0x88E4
@@ -69,6 +94,12 @@ using PFNGLUNIFORM1FPROC = void (APIENTRY *)(int, float);
 using PFNGLENABLEVERTEXATTRIBARRAYPROC = void (APIENTRY *)(unsigned int);
 using PFNGLVERTEXATTRIBPOINTERPROC = void (APIENTRY *)(unsigned int, int, unsigned int, unsigned char, int, const void*);
 using PFNGLDELETEBUFFERSPROC = void (APIENTRY *)(int, const unsigned int*);
+using PFNGLGENFRAMEBUFFERSPROC = void (APIENTRY *)(int, unsigned int*);
+using PFNGLBINDFRAMEBUFFERPROC = void (APIENTRY *)(unsigned int, unsigned int);
+using PFNGLFRAMEBUFFERTEXTURE2DPROC = void (APIENTRY *)(unsigned int, unsigned int, unsigned int, unsigned int, int);
+using PFNGLCHECKFRAMEBUFFERSTATUSPROC = unsigned int (APIENTRY *)(unsigned int);
+using PFNGLDELETEFRAMEBUFFERSPROC = void (APIENTRY *)(int, const unsigned int*);
+using PFNGLACTIVETEXTUREPROC = void (APIENTRY *)(unsigned int);
 
 static PFNGLGENVERTEXARRAYSPROC glGenVertexArraysPtr;
 static PFNGLBINDVERTEXARRAYPROC glBindVertexArrayPtr;
@@ -97,6 +128,12 @@ static PFNGLUNIFORM1FPROC glUniform1fPtr;
 static PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArrayPtr;
 static PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointerPtr;
 static PFNGLDELETEBUFFERSPROC glDeleteBuffersPtr;
+static PFNGLGENFRAMEBUFFERSPROC glGenFramebuffersPtr;
+static PFNGLBINDFRAMEBUFFERPROC glBindFramebufferPtr;
+static PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2DPtr;
+static PFNGLCHECKFRAMEBUFFERSTATUSPROC glCheckFramebufferStatusPtr;
+static PFNGLDELETEFRAMEBUFFERSPROC glDeleteFramebuffersPtr;
+static PFNGLACTIVETEXTUREPROC glActiveTexturePtr;
 
 namespace
 {
@@ -295,6 +332,12 @@ namespace Engine::Graphics
         LOAD(glUniform1fPtr, "glUniform1f");
         LOAD(glEnableVertexAttribArrayPtr, "glEnableVertexAttribArray");
         LOAD(glVertexAttribPointerPtr, "glVertexAttribPointer");
+        LOAD(glGenFramebuffersPtr, "glGenFramebuffers");
+        LOAD(glBindFramebufferPtr, "glBindFramebuffer");
+        LOAD(glFramebufferTexture2DPtr, "glFramebufferTexture2D");
+        LOAD(glCheckFramebufferStatusPtr, "glCheckFramebufferStatus");
+        LOAD(glDeleteFramebuffersPtr, "glDeleteFramebuffers");
+        LOAD(glActiveTexturePtr, "glActiveTexture");
 #undef LOAD
         return true;
     }
@@ -364,6 +407,8 @@ namespace Engine::Graphics
         m_lightColorLocation = glGetUniformLocationPtr(m_program, "uLightColor");
         m_ambientColorLocation = glGetUniformLocationPtr(m_program, "uAmbientColor");
         m_cameraPositionLocation = glGetUniformLocationPtr(m_program, "uCameraPosition");
+        m_lightSpaceLocation = glGetUniformLocationPtr(m_program, "uLightSpaceMatrix");
+        m_shadowTextureLocation = glGetUniformLocationPtr(m_program, "uShadowMap");
         m_pointLightCountLocation = glGetUniformLocationPtr(m_program, "uPointLightCount");
         for (std::size_t index = 0; index < Scene::Scene::maximumPointLights; ++index)
         {
@@ -385,6 +430,8 @@ namespace Engine::Graphics
             m_lightDirectionLocation < 0 || m_lightColorLocation < 0 || m_ambientColorLocation < 0 ||
             m_cameraPositionLocation < 0 || m_pointLightCountLocation < 0)
             return false;
+        if (m_lightSpaceLocation < 0 || m_shadowTextureLocation < 0)
+            return false;
         for (std::size_t index = 0; index < Scene::Scene::maximumPointLights; ++index)
         {
             if (m_pointLightPositionLocations[index] < 0 || m_pointLightColorLocations[index] < 0 ||
@@ -394,10 +441,101 @@ namespace Engine::Graphics
         return true;
     }
 
+    bool Renderer::createShadowShaderProgram()
+    {
+        const std::string vertexSource = readText("assets/shaders/shadow.vert");
+        const std::string fragmentSource = readText("assets/shaders/shadow.frag");
+        if (vertexSource.empty() || fragmentSource.empty())
+            return false;
+
+        const auto compile = [](unsigned int type, const std::string& source) -> unsigned int
+        {
+            const unsigned int shader = glCreateShaderPtr(type);
+            const char* sourcePointer = source.c_str();
+            glShaderSourcePtr(shader, 1, &sourcePointer, nullptr);
+            glCompileShaderPtr(shader);
+
+            int compiled = 0;
+            glGetShaderivPtr(shader, GL_COMPILE_STATUS, &compiled);
+            if (!compiled)
+            {
+                char log[2048]{};
+                int length = 0;
+                glGetShaderInfoLogPtr(shader, sizeof(log), &length, log);
+                OutputDebugStringA(log);
+                glDeleteShaderPtr(shader);
+                return 0;
+            }
+            return shader;
+        };
+
+        const unsigned int vertexShader = compile(GL_VERTEX_SHADER, vertexSource);
+        const unsigned int fragmentShader = compile(GL_FRAGMENT_SHADER, fragmentSource);
+        if (!vertexShader || !fragmentShader)
+        {
+            if (vertexShader)
+                glDeleteShaderPtr(vertexShader);
+            if (fragmentShader)
+                glDeleteShaderPtr(fragmentShader);
+            return false;
+        }
+
+        m_shadowProgram = glCreateProgramPtr();
+        glAttachShaderPtr(m_shadowProgram, vertexShader);
+        glAttachShaderPtr(m_shadowProgram, fragmentShader);
+        glLinkProgramPtr(m_shadowProgram);
+        glDeleteShaderPtr(vertexShader);
+        glDeleteShaderPtr(fragmentShader);
+
+        int linked = 0;
+        glGetProgramivPtr(m_shadowProgram, GL_LINK_STATUS, &linked);
+        if (!linked)
+        {
+            char log[2048]{};
+            int length = 0;
+            glGetProgramInfoLogPtr(m_shadowProgram, sizeof(log), &length, log);
+            OutputDebugStringA(log);
+            return false;
+        }
+
+        m_shadowMvpLocation = glGetUniformLocationPtr(m_shadowProgram, "uLightMVP");
+        return m_shadowMvpLocation >= 0;
+    }
+
+    bool Renderer::createShadowMap()
+    {
+        constexpr int shadowMapSize = 1024;
+        glGenTextures(1, &m_shadowTexture);
+        glBindTexture(GL_TEXTURE_2D, m_shadowTexture);
+        glTexImage2D(
+            GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, shadowMapSize, shadowMapSize, 0,
+            GL_DEPTH_COMPONENT, GL_FLOAT, nullptr
+        );
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        const float borderColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+        glGenFramebuffersPtr(1, &m_shadowFramebuffer);
+        glBindFramebufferPtr(GL_FRAMEBUFFER, m_shadowFramebuffer);
+        glFramebufferTexture2DPtr(
+            GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_shadowTexture, 0
+        );
+        glDrawBuffer(GL_NONE);
+        glReadBuffer(GL_NONE);
+        const bool complete = glCheckFramebufferStatusPtr(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+        glBindFramebufferPtr(GL_FRAMEBUFFER, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        return complete;
+    }
+
     bool Renderer::initialize(HDC deviceContext, const Scene::Scene& scene)
     {
         m_deviceContext = deviceContext;
-        if (!loadOpenGLFunctions() || !createShaderProgram())
+        if (!loadOpenGLFunctions() || !createShaderProgram() ||
+            !createShadowShaderProgram() || !createShadowMap())
             return false;
 
         m_meshes.reserve(scene.meshes().size());
@@ -423,6 +561,7 @@ namespace Engine::Graphics
                     sequentialIndices.push_back(static_cast<std::uint32_t>(index));
                 indices = &sequentialIndices;
             }
+            gpuMesh.indexCount = static_cast<int>(indices->size());
             glGenBuffersPtr(1, &gpuMesh.indexBuffer);
             glBindBufferPtr(GL_ELEMENT_ARRAY_BUFFER, gpuMesh.indexBuffer);
             glBufferDataPtr(
@@ -499,13 +638,56 @@ namespace Engine::Graphics
         return true;
     }
 
+    void Renderer::renderShadowMap(const Scene::Scene& scene, const Math::Mat4& lightSpaceMatrix)
+    {
+        constexpr int shadowMapSize = 1024;
+        glViewport(0, 0, shadowMapSize, shadowMapSize);
+        glBindFramebufferPtr(GL_FRAMEBUFFER, m_shadowFramebuffer);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        glUseProgramPtr(m_shadowProgram);
+        for (const Scene::MeshInstance& object : scene.objects())
+        {
+            if (object.meshIndex >= m_meshes.size())
+                continue;
+
+            const Math::Mat4 model = Math::composeTransform(
+                object.transform.position,
+                object.transform.rotationDegrees,
+                object.transform.scale
+            );
+            const Math::Mat4 lightMvp = Math::multiply(lightSpaceMatrix, model);
+            const GpuMesh& mesh = m_meshes[object.meshIndex];
+            glUniformMatrix4fvPtr(m_shadowMvpLocation, 1, GL_FALSE, lightMvp.m);
+            glBindVertexArrayPtr(mesh.vertexArray);
+            glDrawElements(GL_TRIANGLES, mesh.indexCount, GL_UNSIGNED_INT, nullptr);
+        }
+        glBindFramebufferPtr(GL_FRAMEBUFFER, 0);
+    }
+
     void Renderer::render(const Scene::Scene& scene, const Camera& camera, int width, int height)
     {
         if (!m_initialized || width <= 0 || height <= 0)
             return;
 
-        glViewport(0, 0, width, height);
         glEnable(GL_DEPTH_TEST);
+
+        const Scene::DirectionalLight& light = scene.directionalLight();
+        const Math::Vec3 lightDirection = Math::normalize(light.direction);
+        const Math::Vec3 lightTarget{0.0f, 0.0f, 0.0f};
+        const Math::Vec3 lightPosition{
+            lightTarget.x - lightDirection.x * 8.0f,
+            lightTarget.y - lightDirection.y * 8.0f,
+            lightTarget.z - lightDirection.z * 8.0f
+        };
+        const Math::Vec3 lightUp = std::abs(Math::dot(lightDirection, {0.0f, 1.0f, 0.0f})) > 0.98f
+            ? Math::Vec3{0.0f, 0.0f, 1.0f}
+            : Math::Vec3{0.0f, 1.0f, 0.0f};
+        const Math::Mat4 lightView = Math::lookAt(lightPosition, lightTarget, lightUp);
+        const Math::Mat4 lightProjection = Math::orthographic(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 20.0f);
+        const Math::Mat4 lightSpaceMatrix = Math::multiply(lightProjection, lightView);
+        renderShadowMap(scene, lightSpaceMatrix);
+
+        glViewport(0, 0, width, height);
         glClearColor(0.08f, 0.10f, 0.15f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -519,7 +701,11 @@ namespace Engine::Graphics
 
         glUseProgramPtr(m_program);
         glUniform1iPtr(m_textureLocation, 0);
-        const Scene::DirectionalLight& light = scene.directionalLight();
+        glUniform1iPtr(m_shadowTextureLocation, 1);
+        glUniformMatrix4fvPtr(m_lightSpaceLocation, 1, GL_FALSE, lightSpaceMatrix.m);
+        glActiveTexturePtr(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, m_shadowTexture);
+        glActiveTexturePtr(GL_TEXTURE0);
         glUniform3fPtr(m_lightDirectionLocation, light.direction.x, light.direction.y, light.direction.z);
         glUniform3fPtr(m_lightColorLocation, light.color.x, light.color.y, light.color.z);
         glUniform3fPtr(m_ambientColorLocation, light.ambientColor.x, light.ambientColor.y, light.ambientColor.z);
@@ -618,7 +804,16 @@ namespace Engine::Graphics
         destroyMeshes();
         if (m_program && glDeleteProgramPtr)
             glDeleteProgramPtr(m_program);
+        if (m_shadowProgram && glDeleteProgramPtr)
+            glDeleteProgramPtr(m_shadowProgram);
+        if (m_shadowFramebuffer && glDeleteFramebuffersPtr)
+            glDeleteFramebuffersPtr(1, &m_shadowFramebuffer);
+        if (m_shadowTexture)
+            glDeleteTextures(1, &m_shadowTexture);
         m_program = 0;
+        m_shadowProgram = 0;
+        m_shadowFramebuffer = 0;
+        m_shadowTexture = 0;
         m_mvpLocation = -1;
         m_modelLocation = -1;
         m_textureLocation = -1;
@@ -627,6 +822,9 @@ namespace Engine::Graphics
         m_lightColorLocation = -1;
         m_ambientColorLocation = -1;
         m_cameraPositionLocation = -1;
+        m_lightSpaceLocation = -1;
+        m_shadowTextureLocation = -1;
+        m_shadowMvpLocation = -1;
         m_pointLightCountLocation = -1;
         m_pointLightPositionLocations.fill(-1);
         m_pointLightColorLocations.fill(-1);

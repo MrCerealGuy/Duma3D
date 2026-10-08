@@ -122,6 +122,18 @@ namespace Engine::Math
         return result;
     }
 
+    Mat4 orthographic(float left, float right, float bottom, float top, float nearPlane, float farPlane)
+    {
+        Mat4 result = identity();
+        result.m[0] = 2.0f / (right - left);
+        result.m[5] = 2.0f / (top - bottom);
+        result.m[10] = -2.0f / (farPlane - nearPlane);
+        result.m[12] = -(right + left) / (right - left);
+        result.m[13] = -(top + bottom) / (top - bottom);
+        result.m[14] = -(farPlane + nearPlane) / (farPlane - nearPlane);
+        return result;
+    }
+
     Mat4 lookAt(Vec3 eye, Vec3 center, Vec3 up)
     {
         const Vec3 forward = normalize({center.x - eye.x, center.y - eye.y, center.z - eye.z});

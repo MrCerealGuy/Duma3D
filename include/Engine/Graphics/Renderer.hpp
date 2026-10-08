@@ -30,15 +30,22 @@ namespace Engine::Graphics
             unsigned int vertexArray = 0;
             unsigned int vertexBuffer = 0;
             unsigned int indexBuffer = 0;
+            int indexCount = 0;
             std::vector<GpuSection> sections;
         };
 
         bool loadOpenGLFunctions();
         bool createShaderProgram();
+        bool createShadowShaderProgram();
+        bool createShadowMap();
+        void renderShadowMap(const Scene::Scene& scene, const Math::Mat4& lightSpaceMatrix);
         void destroyMeshes();
 
         HDC m_deviceContext = nullptr;
         unsigned int m_program = 0;
+        unsigned int m_shadowProgram = 0;
+        unsigned int m_shadowFramebuffer = 0;
+        unsigned int m_shadowTexture = 0;
         int m_mvpLocation = -1;
         int m_modelLocation = -1;
         int m_textureLocation = -1;
@@ -47,6 +54,9 @@ namespace Engine::Graphics
         int m_lightColorLocation = -1;
         int m_ambientColorLocation = -1;
         int m_cameraPositionLocation = -1;
+        int m_lightSpaceLocation = -1;
+        int m_shadowTextureLocation = -1;
+        int m_shadowMvpLocation = -1;
         int m_pointLightCountLocation = -1;
         std::array<int, Scene::Scene::maximumPointLights> m_pointLightPositionLocations{};
         std::array<int, Scene::Scene::maximumPointLights> m_pointLightColorLocations{};
