@@ -10,6 +10,8 @@ namespace Engine::Scene
     struct Transform
     {
         Math::Vec3 position{0.0f, 0.0f, 0.0f};
+        Math::Vec3 rotationDegrees{0.0f, 0.0f, 0.0f};
+        Math::Vec3 scale{1.0f, 1.0f, 1.0f};
     };
 
     struct Material

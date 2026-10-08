@@ -209,11 +209,12 @@ namespace Engine::Graphics
         }
 
         m_mvpLocation = glGetUniformLocationPtr(m_program, "uMVP");
+        m_modelLocation = glGetUniformLocationPtr(m_program, "uModel");
         m_albedoLocation = glGetUniformLocationPtr(m_program, "uAlbedo");
         m_lightDirectionLocation = glGetUniformLocationPtr(m_program, "uLightDirection");
         m_lightColorLocation = glGetUniformLocationPtr(m_program, "uLightColor");
         m_ambientColorLocation = glGetUniformLocationPtr(m_program, "uAmbientColor");
-        return m_mvpLocation >= 0 && m_albedoLocation >= 0 &&
+        return m_mvpLocation >= 0 && m_modelLocation >= 0 && m_albedoLocation >= 0 &&
             m_lightDirectionLocation >= 0 && m_lightColorLocation >= 0 &&
             m_ambientColorLocation >= 0;
     }
@@ -284,11 +285,16 @@ namespace Engine::Graphics
             if (object.meshIndex >= m_meshes.size() || object.materialIndex >= scene.materials().size())
                 continue;
 
-            const Math::Mat4 model = Math::translation(object.transform.position);
+            const Math::Mat4 model = Math::composeTransform(
+                object.transform.position,
+                object.transform.rotationDegrees,
+                object.transform.scale
+            );
             const Math::Mat4 mvp = Math::multiply(projection, Math::multiply(view, model));
             const GpuMesh& mesh = m_meshes[object.meshIndex];
             const Scene::Material& material = scene.materials()[object.materialIndex];
             glUniformMatrix4fvPtr(m_mvpLocation, 1, GL_FALSE, mvp.m);
+            glUniformMatrix4fvPtr(m_modelLocation, 1, GL_FALSE, model.m);
             glUniform3fPtr(m_albedoLocation, material.baseColor.x, material.baseColor.y, material.baseColor.z);
             glBindVertexArrayPtr(mesh.vertexArray);
             glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
@@ -325,6 +331,7 @@ namespace Engine::Graphics
             glDeleteProgramPtr(m_program);
         m_program = 0;
         m_mvpLocation = -1;
+        m_modelLocation = -1;
         m_albedoLocation = -1;
         m_lightDirectionLocation = -1;
         m_lightColorLocation = -1;
