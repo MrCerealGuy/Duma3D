@@ -1,0 +1,20 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build Duma3D",
+      "type": "process",
+      "command": "C:/Program Files/CMake/bin/cmake.exe",
+      "args": [
+        "--build",
+        "${workspaceFolder}/build",
+        "--target",
+        "Duma3D"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": ["$gcc"]
+    }
+  ]
+}

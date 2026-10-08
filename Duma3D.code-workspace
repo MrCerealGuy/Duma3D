@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"cmake.generator": "MinGW Makefiles",
+		"cmake.additionalCompilerSearchDirs": [
+			"C:\\Program Files\\CodeBlocks\\MinGW\\bin"
+		],
+		"cmake.environment": {
+			"PATH": "C:\\Program Files\\CodeBlocks\\MinGW\\bin;${env:PATH}"
+		}
+	}
+}
