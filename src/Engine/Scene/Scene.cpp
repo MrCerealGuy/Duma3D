@@ -1,8 +1,11 @@
 #include "Engine/Scene/Scene.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
+#include <iterator>
+#include <random>
 #include <utility>
 #include <vector>
 
@@ -15,6 +18,19 @@ namespace Engine::Scene
         constexpr float houseCentersX[] = {-7.0f, 7.0f};
         constexpr float houseCenterZ = -4.0f;
 
+        struct HouseGenerationOptions
+        {
+            float width;
+            float depth;
+            float wallHeight;
+            float roofPeakHeight;
+            float entranceOffset;
+            float partitionOffset;
+            float windowWidth;
+            float interiorDoorWidth;
+            bool flatRoof;
+        };
+
         float terrainHeight(float x, float z)
         {
             float flatten = 1.0f;
@@ -23,7 +39,7 @@ namespace Engine::Scene
                 const float dx = x - houseX;
                 const float dz = z - houseCenterZ;
                 const float distance = std::sqrt(dx * dx + dz * dz);
-                const float t = std::clamp((distance - 5.0f) / 3.0f, 0.0f, 1.0f);
+                const float t = std::clamp((distance - 5.8f) / 3.0f, 0.0f, 1.0f);
                 flatten = std::min(flatten, t * t * (3.0f - 2.0f * t));
             }
 
@@ -80,11 +96,10 @@ namespace Engine::Scene
             return mesh;
         }
 
-        Mesh makeGables()
+        Mesh makeGables(float width, float peakHeight, float depth)
         {
-            constexpr float halfWidth = 3.0f;
-            constexpr float peakHeight = 1.1f;
-            constexpr float halfDepth = 3.0f;
+            const float halfWidth = width * 0.5f;
+            const float halfDepth = depth * 0.5f;
             Mesh mesh;
             mesh.vertices = {
                 {{-halfWidth, 0.0f, halfDepth}, {0.0f, 0.0f, 1.0f}},
@@ -132,18 +147,19 @@ namespace Engine::Scene
             std::size_t roofMaterial,
             std::size_t trimMaterial,
             Math::Vec3 center,
-            Math::Vec3 leftRoomLight,
-            Math::Vec3 rightRoomLight
+            Math::Vec3 frontRoomLight,
+            Math::Vec3 rearRoomLight,
+            const HouseGenerationOptions& options
         )
         {
-            constexpr float width = 6.0f;
-            constexpr float depth = 6.0f;
+            const float width = options.width;
+            const float depth = options.depth;
             constexpr float wallThickness = 0.18f;
             constexpr float floorTop = 0.16f;
-            constexpr float wallHeight = 2.7f;
-            constexpr float doorWidth = 1.1f;
-            constexpr float doorHeight = 2.2f;
-            constexpr float roofPeakHeight = 1.1f;
+            const float wallHeight = options.wallHeight;
+            const float doorWidth = 1.05f;
+            const float doorHeight = std::min(2.2f, wallHeight - 0.3f);
+            const float roofPeakHeight = options.roofPeakHeight;
             const float wallCenterY = floorTop + wallHeight * 0.5f;
             const float wallTop = floorTop + wallHeight;
             const float frontZ = center.z + depth * 0.5f - wallThickness * 0.5f;
@@ -154,41 +170,46 @@ namespace Engine::Scene
             addWall(scene, cubeMesh, wallMaterial,
                 {center.x, wallCenterY, backZ}, {width, wallHeight, wallThickness});
 
-            const float frontSegmentWidth = (width - doorWidth) * 0.5f;
+            const float entranceStart = options.entranceOffset - doorWidth * 0.5f;
+            const float entranceEnd = options.entranceOffset + doorWidth * 0.5f;
+            const float leftFrontWidth = entranceStart + width * 0.5f;
+            const float rightFrontWidth = width * 0.5f - entranceEnd;
             addWall(scene, cubeMesh, wallMaterial,
-                {center.x - doorWidth * 0.5f - frontSegmentWidth * 0.5f, wallCenterY, frontZ},
-                {frontSegmentWidth, wallHeight, wallThickness});
+                {center.x + (-width * 0.5f + entranceStart) * 0.5f, wallCenterY, frontZ},
+                {leftFrontWidth, wallHeight, wallThickness});
             addWall(scene, cubeMesh, wallMaterial,
-                {center.x + doorWidth * 0.5f + frontSegmentWidth * 0.5f, wallCenterY, frontZ},
-                {frontSegmentWidth, wallHeight, wallThickness});
+                {center.x + (entranceEnd + width * 0.5f) * 0.5f, wallCenterY, frontZ},
+                {rightFrontWidth, wallHeight, wallThickness});
             addWall(scene, cubeMesh, wallMaterial,
-                {center.x, floorTop + (wallHeight + doorHeight) * 0.5f, frontZ},
+                {center.x + options.entranceOffset, floorTop + (wallHeight + doorHeight) * 0.5f, frontZ},
                 {doorWidth, wallHeight - doorHeight, wallThickness});
 
-            constexpr float interiorDoorWidth = 1.0f;
-            const float partitionBack = center.z - depth * 0.5f + wallThickness;
-            const float partitionFront = center.z + depth * 0.5f - wallThickness;
-            const float interiorDoorCenter = center.z + 1.0f;
-            const float doorStart = interiorDoorCenter - interiorDoorWidth * 0.5f;
-            const float doorEnd = interiorDoorCenter + interiorDoorWidth * 0.5f;
-            const float rearPartitionLength = doorStart - partitionBack;
-            const float frontPartitionLength = partitionFront - doorEnd;
+            const float interiorDoorWidth = options.interiorDoorWidth;
+            const float partitionZ = center.z + options.partitionOffset;
+            const float partitionDoorStart = options.entranceOffset - interiorDoorWidth * 0.5f;
+            const float partitionDoorEnd = options.entranceOffset + interiorDoorWidth * 0.5f;
+            const float partitionLeftWidth = partitionDoorStart + width * 0.5f;
+            const float partitionRightWidth = width * 0.5f - partitionDoorEnd;
             addWall(scene, cubeMesh, wallMaterial,
-                {center.x, wallCenterY, (partitionBack + doorStart) * 0.5f},
-                {wallThickness, wallHeight, rearPartitionLength});
+                {center.x + (-width * 0.5f + partitionDoorStart) * 0.5f,
+                    wallCenterY, partitionZ},
+                {partitionLeftWidth, wallHeight, wallThickness});
             addWall(scene, cubeMesh, wallMaterial,
-                {center.x, wallCenterY, (doorEnd + partitionFront) * 0.5f},
-                {wallThickness, wallHeight, frontPartitionLength});
+                {center.x + (partitionDoorEnd + width * 0.5f) * 0.5f,
+                    wallCenterY, partitionZ},
+                {partitionRightWidth, wallHeight, wallThickness});
             addWall(scene, cubeMesh, wallMaterial,
-                {center.x, floorTop + (wallHeight + doorHeight) * 0.5f, interiorDoorCenter},
-                {wallThickness, wallHeight - doorHeight, interiorDoorWidth});
+                {center.x + options.entranceOffset, floorTop + (wallHeight + doorHeight) * 0.5f, partitionZ},
+                {interiorDoorWidth, wallHeight - doorHeight, wallThickness});
 
-            constexpr float windowCenterZOffset = -0.4f;
-            constexpr float windowWidth = 1.25f;
             constexpr float windowBottom = 1.0f;
-            constexpr float windowTop = 2.05f;
-            const float windowCenterZ = center.z + windowCenterZOffset;
-            const float windowSegmentLength = (depth - windowWidth) * 0.5f;
+            const float windowTop = std::min(2.05f, wallHeight - 0.35f);
+            const float windowWidth = options.windowWidth;
+            const float frontRoomCenterZ = (center.z + depth * 0.5f + partitionZ) * 0.5f;
+            const float windowCenterZ = frontRoomCenterZ;
+            const float rearWindowSegmentLength = windowCenterZ - windowWidth * 0.5f - (center.z - depth * 0.5f);
+            const float frontWindowSegmentLength = (center.z + depth * 0.5f) -
+                (windowCenterZ + windowWidth * 0.5f);
             for (const float side : {-1.0f, 1.0f})
             {
                 const float sideX = center.x + side * (width * 0.5f - wallThickness * 0.5f);
@@ -200,11 +221,13 @@ namespace Engine::Scene
                     {sideX, floorTop + (wallHeight + windowTop) * 0.5f, center.z},
                     {wallThickness, wallHeight - windowTop, depth});
                 addWall(scene, cubeMesh, wallMaterial,
-                    {sideX, windowCenterY, windowCenterZ - (windowWidth + windowSegmentLength) * 0.5f},
-                    {wallThickness, windowTop - windowBottom, windowSegmentLength});
+                    {sideX, windowCenterY,
+                        (center.z - depth * 0.5f + windowCenterZ - windowWidth * 0.5f) * 0.5f},
+                    {wallThickness, windowTop - windowBottom, rearWindowSegmentLength});
                 addWall(scene, cubeMesh, wallMaterial,
-                    {sideX, windowCenterY, windowCenterZ + (windowWidth + windowSegmentLength) * 0.5f},
-                    {wallThickness, windowTop - windowBottom, windowSegmentLength});
+                    {sideX, windowCenterY,
+                        (windowCenterZ + windowWidth * 0.5f + center.z + depth * 0.5f) * 0.5f},
+                    {wallThickness, windowTop - windowBottom, frontWindowSegmentLength});
                 addBox(scene, cubeMesh, trimMaterial,
                     {center.x + side * (width * 0.5f + 0.03f), windowBottom + floorTop, windowCenterZ},
                     {0.12f, 0.08f, windowWidth + 0.16f});
@@ -216,30 +239,58 @@ namespace Engine::Scene
                     {0.1f, windowTop - windowBottom, 0.08f});
             }
 
-            const float roofAngle = std::atan2(roofPeakHeight, width * 0.5f) * 180.0f / 3.14159265359f;
-            const float roofPanelLength = std::sqrt(
-                width * width * 0.25f + roofPeakHeight * roofPeakHeight
-            ) + 0.2f;
             const float roofCenterY = wallTop + roofPeakHeight * 0.5f;
-            addBox(scene, cubeMesh, roofMaterial,
-                {center.x - width * 0.25f, roofCenterY, center.z},
-                {roofPanelLength, 0.18f, depth + 0.4f}, {0.0f, 0.0f, roofAngle});
-            addBox(scene, cubeMesh, roofMaterial,
-                {center.x + width * 0.25f, roofCenterY, center.z},
-                {roofPanelLength, 0.18f, depth + 0.4f}, {0.0f, 0.0f, -roofAngle});
-            scene.addBoxCollider(
-                {center.x, wallTop + roofPeakHeight * 0.5f, center.z},
-                {width + 0.4f, roofPeakHeight + 0.2f, depth + 0.4f}
-            );
-            scene.addObject(gableMesh, roofMaterial,
-                {{center.x, wallTop, center.z}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}});
+            if (options.flatRoof)
+            {
+                constexpr float parapetHeight = 0.38f;
+                addBox(scene, cubeMesh, roofMaterial,
+                    {center.x, wallTop + 0.1f, center.z}, {width + 0.4f, 0.2f, depth + 0.4f});
+                addBox(scene, cubeMesh, roofMaterial,
+                    {center.x, wallTop + 0.2f + parapetHeight * 0.5f, center.z - depth * 0.5f},
+                    {width + 0.4f, parapetHeight, wallThickness});
+                addBox(scene, cubeMesh, roofMaterial,
+                    {center.x, wallTop + 0.2f + parapetHeight * 0.5f, center.z + depth * 0.5f},
+                    {width + 0.4f, parapetHeight, wallThickness});
+                addBox(scene, cubeMesh, roofMaterial,
+                    {center.x - width * 0.5f, wallTop + 0.2f + parapetHeight * 0.5f, center.z},
+                    {wallThickness, parapetHeight, depth});
+                addBox(scene, cubeMesh, roofMaterial,
+                    {center.x + width * 0.5f, wallTop + 0.2f + parapetHeight * 0.5f, center.z},
+                    {wallThickness, parapetHeight, depth});
+                scene.addBoxCollider(
+                    {center.x, wallTop + 0.3f, center.z},
+                    {width + 0.4f, 0.8f, depth + 0.4f}
+                );
+            }
+            else
+            {
+                const float roofAngle = std::atan2(roofPeakHeight, width * 0.5f) *
+                    180.0f / 3.14159265359f;
+                const float roofPanelLength = std::sqrt(
+                    width * width * 0.25f + roofPeakHeight * roofPeakHeight
+                ) + 0.2f;
+                addBox(scene, cubeMesh, roofMaterial,
+                    {center.x - width * 0.25f, roofCenterY, center.z},
+                    {roofPanelLength, 0.18f, depth + 0.4f}, {0.0f, 0.0f, roofAngle});
+                addBox(scene, cubeMesh, roofMaterial,
+                    {center.x + width * 0.25f, roofCenterY, center.z},
+                    {roofPanelLength, 0.18f, depth + 0.4f}, {0.0f, 0.0f, -roofAngle});
+                scene.addBoxCollider(
+                    {center.x, wallTop + roofPeakHeight * 0.5f, center.z},
+                    {width + 0.4f, roofPeakHeight + 0.2f, depth + 0.4f}
+                );
+                scene.addObject(gableMesh, roofMaterial,
+                    {{center.x, wallTop, center.z}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}});
+            }
 
+            const float rearRoomCenterZ = (partitionZ + center.z - depth * 0.5f) * 0.5f;
+            const float roomLightY = floorTop + wallHeight * 0.72f;
             scene.addPointLight({
-                {center.x - 1.5f, floorTop + 2.0f, center.z - 0.5f}, leftRoomLight,
+                {center.x + options.entranceOffset, roomLightY, frontRoomCenterZ}, frontRoomLight,
                 3.2f, 1.0f, 0.12f, 0.035f
             });
             scene.addPointLight({
-                {center.x + 1.5f, floorTop + 2.0f, center.z - 0.5f}, rightRoomLight,
+                {center.x + options.entranceOffset, roomLightY, rearRoomCenterZ}, rearRoomLight,
                 3.2f, 1.0f, 0.12f, 0.035f
             });
         }
@@ -309,60 +360,144 @@ namespace Engine::Scene
     Scene makeDemoScene()
     {
         Scene scene;
+        std::mt19937 generator(std::random_device{}());
         const std::size_t ground = scene.addMesh(makeLandscape());
         const std::size_t cube = scene.addMesh(Mesh::cube());
         const std::size_t sphere = scene.addMesh(Mesh::sphere());
-        const std::size_t gable = scene.addMesh(makeGables());
-        Mesh pyramid;
-        std::string loadError;
-        const bool loadedPyramid = Mesh::loadObj("assets/models/pyramid.obj", pyramid, loadError);
-        const std::size_t importedMesh = scene.addMesh(loadedPyramid ? std::move(pyramid) : Mesh::cube());
         const std::size_t groundMaterial = scene.addMaterial({{0.5f, 0.72f, 0.38f}});
-        const std::size_t wallA = scene.addMaterial({{0.78f, 0.7f, 0.58f}});
-        const std::size_t wallB = scene.addMaterial({{0.62f, 0.72f, 0.78f}});
+        const std::array<std::size_t, 3> wallMaterials = {
+            scene.addMaterial({{0.78f, 0.7f, 0.58f}}),
+            scene.addMaterial({{0.62f, 0.72f, 0.78f}}),
+            scene.addMaterial({{0.61f, 0.73f, 0.55f}})
+        };
+        const std::array<std::size_t, 3> roofMaterials = {
+            scene.addMaterial({{0.42f, 0.16f, 0.1f}}),
+            scene.addMaterial({{0.18f, 0.25f, 0.32f}}),
+            scene.addMaterial({{0.53f, 0.38f, 0.16f}})
+        };
         const std::size_t floor = scene.addMaterial({{0.52f, 0.32f, 0.18f}});
-        const std::size_t roofA = scene.addMaterial({{0.42f, 0.16f, 0.1f}});
-        const std::size_t roofB = scene.addMaterial({{0.18f, 0.25f, 0.32f}});
         const std::size_t trim = scene.addMaterial({{0.3f, 0.18f, 0.1f}});
         const std::size_t path = scene.addMaterial({{0.5f, 0.48f, 0.4f}});
         const std::size_t bark = scene.addMaterial({{0.28f, 0.16f, 0.08f}});
-        const std::size_t foliage = scene.addMaterial({{0.24f, 0.52f, 0.2f}});
-        const std::size_t white = scene.addMaterial({{1.0f, 1.0f, 1.0f}});
-        const std::size_t fallbackOrange = scene.addMaterial({{1.0f, 0.38f, 0.12f}});
+        const std::array<std::size_t, 3> foliageMaterials = {
+            scene.addMaterial({{0.24f, 0.52f, 0.2f}}),
+            scene.addMaterial({{0.36f, 0.56f, 0.22f}}),
+            scene.addMaterial({{0.18f, 0.42f, 0.25f}})
+        };
         const std::size_t green = scene.addMaterial({{0.18f, 0.72f, 0.3f}});
+        const std::array<Math::Vec3, 6> roomLightPalette = {{
+            {1.0f, 0.48f, 0.2f}, {0.2f, 0.42f, 1.0f},
+            {0.25f, 0.9f, 0.3f}, {1.0f, 0.2f, 0.5f},
+            {1.0f, 0.72f, 0.3f}, {0.35f, 0.9f, 0.85f}
+        }};
 
         scene.addObject(ground, groundMaterial);
-        addHouse(scene, cube, gable, wallA, floor, roofA, trim,
-            {-7.0f, 0.0f, houseCenterZ}, {1.0f, 0.48f, 0.2f}, {0.2f, 0.42f, 1.0f});
-        addHouse(scene, cube, gable, wallB, floor, roofB, trim,
-            {7.0f, 0.0f, houseCenterZ}, {0.25f, 0.9f, 0.3f}, {1.0f, 0.2f, 0.5f});
-
-        for (const float houseX : houseCentersX)
+        std::array<Math::Vec3, 6> shuffledRoomLights = roomLightPalette;
+        std::shuffle(shuffledRoomLights.begin(), shuffledRoomLights.end(), generator);
+        std::uniform_int_distribution<std::size_t> styleChoice(0, wallMaterials.size() - 1);
+        std::uniform_real_distribution<float> houseWidth(5.5f, 6.4f);
+        std::uniform_real_distribution<float> houseDepth(5.5f, 6.4f);
+        std::uniform_real_distribution<float> houseWallHeight(2.5f, 3.05f);
+        std::uniform_real_distribution<float> houseRoofHeight(0.8f, 1.35f);
+        std::uniform_real_distribution<float> doorOffset(-0.65f, 0.65f);
+        std::uniform_real_distribution<float> partitionOffset(-0.45f, 0.45f);
+        std::uniform_real_distribution<float> windowWidth(1.0f, 1.5f);
+        std::uniform_real_distribution<float> interiorDoorWidth(1.0f, 1.35f);
+        std::uniform_real_distribution<float> housePositionX(-0.35f, 0.35f);
+        std::uniform_real_distribution<float> housePositionZ(-0.45f, 0.45f);
+        std::uniform_int_distribution<int> roofStyle(0, 3);
+        std::array<Math::Vec3, 2> houseCenters{};
+        std::array<HouseGenerationOptions, 2> generatedHouseOptions{};
+        for (std::size_t houseIndex = 0; houseIndex < std::size(houseCentersX); ++houseIndex)
         {
+            const HouseGenerationOptions options{
+                houseWidth(generator),
+                houseDepth(generator),
+                houseWallHeight(generator),
+                houseRoofHeight(generator),
+                doorOffset(generator),
+                partitionOffset(generator),
+                windowWidth(generator),
+                interiorDoorWidth(generator),
+                roofStyle(generator) == 0
+            };
+            const float houseX = houseCentersX[houseIndex] + housePositionX(generator);
+            const float houseZ = houseCenterZ + housePositionZ(generator);
+            houseCenters[houseIndex] = {houseX, 0.0f, houseZ};
+            generatedHouseOptions[houseIndex] = options;
+            const std::size_t gable = options.flatRoof
+                ? 0
+                : scene.addMesh(makeGables(options.width, options.roofPeakHeight, options.depth));
+            addHouse(
+                scene, cube, gable,
+                wallMaterials[styleChoice(generator)], floor,
+                roofMaterials[styleChoice(generator)], trim,
+                houseCenters[houseIndex],
+                shuffledRoomLights[houseIndex * 2], shuffledRoomLights[houseIndex * 2 + 1],
+                options
+            );
+        }
+
+        for (std::size_t houseIndex = 0; houseIndex < houseCenters.size(); ++houseIndex)
+        {
+            const Math::Vec3 houseCenter = houseCenters[houseIndex];
+            const HouseGenerationOptions& options = generatedHouseOptions[houseIndex];
+            const float entryX = houseCenter.x + options.entranceOffset;
+            const float frontZ = houseCenter.z + options.depth * 0.5f;
             for (int step = 0; step < 7; ++step)
             {
-                const float z = -0.4f + static_cast<float>(step) * 0.9f;
+                const float z = frontZ + 0.55f + static_cast<float>(step) * 0.85f;
                 addBox(scene, cube, path,
-                    {houseX, terrainHeight(houseX, z) + 0.06f, z},
+                    {entryX, sampleDemoTerrainHeight(entryX, z) + 0.06f, z},
                     {0.9f, 0.12f, 0.68f});
             }
         }
 
-        const Math::Vec3 treeLocations[] = {
-            {-15.0f, 0.0f, -2.0f}, {-13.0f, 0.0f, 9.0f},
-            {14.0f, 0.0f, 1.0f}, {12.0f, 0.0f, 12.0f}, {0.0f, 0.0f, 15.0f}
-        };
-        for (const Math::Vec3 location : treeLocations)
+        std::uniform_real_distribution<float> landscapePosition(-19.0f, 19.0f);
+        std::uniform_real_distribution<float> treeScale(0.8f, 1.35f);
+        std::uniform_int_distribution<int> treeCountChoice(10, 17);
+        std::uniform_int_distribution<std::size_t> foliageChoice(0, foliageMaterials.size() - 1);
+        std::vector<Math::Vec2> treeLocations;
+        const int treeCount = treeCountChoice(generator);
+        for (int attempt = 0; attempt < treeCount * 30 &&
+             treeLocations.size() < static_cast<std::size_t>(treeCount); ++attempt)
         {
-            const float groundHeight = terrainHeight(location.x, location.z);
-            addBox(scene, cube, bark,
-                {location.x, groundHeight + 0.8f, location.z}, {0.38f, 1.6f, 0.38f});
-            scene.addObject(sphere, foliage,
-                {{location.x, groundHeight + 2.0f, location.z}, {0.0f, 0.0f, 0.0f}, {1.5f, 1.8f, 1.5f}});
+            const float x = landscapePosition(generator);
+            const float z = landscapePosition(generator);
+            bool tooClose = std::sqrt(x * x + (z - 9.0f) * (z - 9.0f)) < 4.5f;
+            for (const float houseX : houseCentersX)
+            {
+                const float dx = x - houseX;
+                const float dz = z - houseCenterZ;
+                tooClose = tooClose || std::sqrt(dx * dx + dz * dz) < 5.5f;
+            }
+            for (const Math::Vec2 existing : treeLocations)
+            {
+                const float dx = x - existing.x;
+                const float dz = z - existing.y;
+                tooClose = tooClose || dx * dx + dz * dz < 12.0f;
+            }
+            if (!tooClose)
+                treeLocations.push_back({x, z});
         }
 
-        scene.addObject(importedMesh, loadedPyramid ? white : fallbackOrange,
-            {{0.0f, terrainHeight(0.0f, -15.0f), -15.0f}, {8.0f, -18.0f, 12.0f}, {1.5f, 1.5f, 1.5f}});
+        for (const Math::Vec2 location : treeLocations)
+        {
+            const float scale = treeScale(generator);
+            const float groundHeight = terrainHeight(location.x, location.y);
+            addBox(scene, cube, bark,
+                {location.x, groundHeight + 0.8f * scale, location.y},
+                {0.38f * scale, 1.6f * scale, 0.38f * scale});
+            scene.addObject(sphere, foliageMaterials[foliageChoice(generator)],
+                {{location.x, groundHeight + 2.0f * scale, location.y},
+                    {0.0f, 0.0f, 0.0f}, {1.5f * scale, 1.8f * scale, 1.5f * scale}});
+        }
+
+        const float monumentHeight = terrainHeight(0.0f, -15.0f);
+        addBox(scene, cube, path, {0.0f, monumentHeight + 0.25f, -15.0f}, {1.8f, 0.5f, 1.8f});
+        addBox(scene, cube, trim, {0.0f, monumentHeight + 1.2f, -15.0f}, {0.55f, 1.9f, 0.55f});
+        scene.addObject(sphere, path,
+            {{0.0f, monumentHeight + 2.35f, -15.0f}, {0.0f, 0.0f, 0.0f}, {0.75f, 0.75f, 0.75f}});
         scene.addObject(sphere, green,
             {{0.0f, terrainHeight(0.0f, 3.0f) + 0.9f, 3.0f}, {-15.0f, -28.0f, 6.0f}, {0.9f, 0.9f, 0.9f}});
         return scene;

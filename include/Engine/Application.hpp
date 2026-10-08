@@ -19,6 +19,7 @@ private:
     void destroyOpenGL();
     void update(float dt);
     void toggleMovementMode();
+    void updateHud();
     void handleRawInput(HRAWINPUT inputHandle);
     void handleKeyDown(WPARAM key);
     void handleKeyUp(WPARAM key);
@@ -26,6 +27,9 @@ private:
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
     HWND hwnd_ = nullptr;
+    HWND hudHwnd_ = nullptr;
+    HFONT hudFont_ = nullptr;
+    HBRUSH hudBackground_ = nullptr;
     HDC hdc_ = nullptr;
     HGLRC glrc_ = nullptr;
     HGLRC tempContext_ = nullptr;
@@ -34,7 +38,7 @@ private:
     std::wstring title_;
 
     bool running_ = true;
-    bool gravityMode_ = false;
+    bool gravityMode_ = true;
     bool jumpRequested_ = false;
     float verticalVelocity_ = 0.0f;
     bool keys_[256]{};

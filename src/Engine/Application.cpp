@@ -77,6 +77,10 @@ Application::~Application()
         wglMakeCurrent(hdc_, glrc_);
     renderer_.shutdown();
     destroyOpenGL();
+    if (hudFont_)
+        DeleteObject(hudFont_);
+    if (hudBackground_)
+        DeleteObject(hudBackground_);
 }
 
 bool Application::createWindow()
@@ -96,7 +100,7 @@ bool Application::createWindow()
         0,
         windowClass.lpszClassName,
         title_.c_str(),
-        WS_OVERLAPPEDWINDOW,
+        WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
         rect.right - rect.left,
@@ -110,6 +114,17 @@ bool Application::createWindow()
         return false;
 
     SetWindowLongPtrW(hwnd_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+    hudBackground_ = CreateSolidBrush(RGB(20, 27, 38));
+    hudFont_ = CreateFontW(18, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+        FIXED_PITCH | FF_MODERN, L"Consolas");
+    hudHwnd_ = CreateWindowExW(WS_EX_CLIENTEDGE, L"STATIC", L"",
+        WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOPREFIX,
+        16, 16, 420, 190, hwnd_, nullptr, windowClass.hInstance, nullptr);
+    if (!hudBackground_ || !hudFont_ || !hudHwnd_)
+        return false;
+    SendMessageW(hudHwnd_, WM_SETFONT, reinterpret_cast<WPARAM>(hudFont_), TRUE);
+    updateHud();
     RAWINPUTDEVICE mouseInput{};
     mouseInput.usUsagePage = 0x01;
     mouseInput.usUsage = 0x02;
@@ -285,8 +300,27 @@ void Application::toggleMovementMode()
         camera_.setPosition(position);
     }
 
-    const std::wstring modeTitle = title_ + (gravityMode_ ? L" [Laufmodus]" : L" [Flugmodus]");
+    updateHud();
+}
+
+void Application::updateHud()
+{
+    if (!hwnd_)
+        return;
+    const wchar_t* mode = gravityMode_ ? L"Laufmodus" : L"Flugmodus";
+    const std::wstring modeTitle = title_ + L" [" + mode + L"]";
     SetWindowTextW(hwnd_, modeTitle.c_str());
+    if (hudHwnd_)
+    {
+        const wchar_t* movement = gravityMode_
+            ? L"[Leertaste] Springen"
+            : L"[Leertaste] Steigen  [Strg] Sinken";
+        std::wstring legend = L"Duma3D  |  " + std::wstring(mode) +
+            L"\r\n\r\n[WASD] Bewegen\r\n[Maus] Umsehen\r\n";
+        legend += movement;
+        legend += L"\r\n[Umschalt] Sprint\r\n[G] Modus wechseln\r\n[Esc] Beenden";
+        SetWindowTextW(hudHwnd_, legend.c_str());
+    }
 }
 
 void Application::handleRawInput(HRAWINPUT inputHandle)
@@ -341,8 +375,18 @@ LRESULT CALLBACK Application::WindowProc(HWND hwnd, UINT message, WPARAM wParam,
             {
                 app->width_ = LOWORD(lParam);
                 app->height_ = HIWORD(lParam);
+                if (app->hudHwnd_)
+                    MoveWindow(app->hudHwnd_, 16, 16, 420, 190, TRUE);
             }
             return 0;
+        case WM_CTLCOLORSTATIC:
+            if (app && app->hudBackground_)
+            {
+                SetTextColor(reinterpret_cast<HDC>(wParam), RGB(238, 242, 248));
+                SetBkColor(reinterpret_cast<HDC>(wParam), RGB(20, 27, 38));
+                return reinterpret_cast<LRESULT>(app->hudBackground_);
+            }
+            return DefWindowProcW(hwnd, message, wParam, lParam);
         case WM_CLOSE:
             if (app) app->running_ = false;
             return 0;
@@ -361,6 +405,11 @@ int Application::run()
         MessageBoxW(hwnd_, L"Duma3D konnte OpenGL nicht initialisieren. Siehe Debug-Ausgabe.", L"Duma3D", MB_ICONERROR);
         return 1;
     }
+
+    Engine::Math::Vec3 startPosition = camera_.position();
+    startPosition.y = Engine::Scene::sampleDemoTerrainHeight(startPosition.x, startPosition.z) + playerEyeHeight;
+    camera_.setPosition(startPosition);
+    updateHud();
 
     ShowWindow(hwnd_, SW_SHOWMAXIMIZED);
     UpdateWindow(hwnd_);
