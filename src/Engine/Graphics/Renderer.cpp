@@ -1,0 +1,308 @@
+#include "Engine/Graphics/Renderer.hpp"
+
+#include <gl/GL.h>
+
+#include <cstddef>
+#include <fstream>
+#include <sstream>
+#include <string>
+
+#ifndef GL_ARRAY_BUFFER
+#define GL_ARRAY_BUFFER 0x8892
+#endif
+#ifndef GL_STATIC_DRAW
+#define GL_STATIC_DRAW 0x88E4
+#endif
+#ifndef GL_COMPILE_STATUS
+#define GL_COMPILE_STATUS 0x8B81
+#endif
+#ifndef GL_LINK_STATUS
+#define GL_LINK_STATUS 0x8B82
+#endif
+#ifndef GL_VERTEX_SHADER
+#define GL_VERTEX_SHADER 0x8B31
+#endif
+#ifndef GL_FRAGMENT_SHADER
+#define GL_FRAGMENT_SHADER 0x8B30
+#endif
+
+#ifndef APIENTRY
+#define APIENTRY __stdcall
+#endif
+
+using GLsizeiptr = std::ptrdiff_t;
+
+using PFNGLGENVERTEXARRAYSPROC = void (APIENTRY *)(int, unsigned int*);
+using PFNGLBINDVERTEXARRAYPROC = void (APIENTRY *)(unsigned int);
+using PFNGLDELETEVERTEXARRAYSPROC = void (APIENTRY *)(int, const unsigned int*);
+using PFNGLGENBUFFERSPROC = void (APIENTRY *)(int, unsigned int*);
+using PFNGLBINDBUFFERPROC = void (APIENTRY *)(unsigned int, unsigned int);
+using PFNGLBUFFERDATAPROC = void (APIENTRY *)(unsigned int, GLsizeiptr, const void*, unsigned int);
+using PFNGLCREATESHADERPROC = unsigned int (APIENTRY *)(unsigned int);
+using PFNGLSHADERSOURCEPROC = void (APIENTRY *)(unsigned int, int, const char* const*, const int*);
+using PFNGLCOMPILESHADERPROC = void (APIENTRY *)(unsigned int);
+using PFNGLGETSHADERIVPROC = void (APIENTRY *)(unsigned int, unsigned int, int*);
+using PFNGLGETSHADERINFOLOGPROC = void (APIENTRY *)(unsigned int, int, int*, char*);
+using PFNGLDELETESHADERPROC = void (APIENTRY *)(unsigned int);
+using PFNGLCREATEPROGRAMPROC = unsigned int (APIENTRY *)();
+using PFNGLATTACHSHADERPROC = void (APIENTRY *)(unsigned int, unsigned int);
+using PFNGLLINKPROGRAMPROC = void (APIENTRY *)(unsigned int);
+using PFNGLGETPROGRAMIVPROC = void (APIENTRY *)(unsigned int, unsigned int, int*);
+using PFNGLGETPROGRAMINFOLOGPROC = void (APIENTRY *)(unsigned int, int, int*, char*);
+using PFNGLUSEPROGRAMPROC = void (APIENTRY *)(unsigned int);
+using PFNGLDELETEPROGRAMPROC = void (APIENTRY *)(unsigned int);
+using PFNGLGETUNIFORMLOCATIONPROC = int (APIENTRY *)(unsigned int, const char*);
+using PFNGLUNIFORMMATRIX4FVPROC = void (APIENTRY *)(int, int, unsigned char, const float*);
+using PFNGLENABLEVERTEXATTRIBARRAYPROC = void (APIENTRY *)(unsigned int);
+using PFNGLVERTEXATTRIBPOINTERPROC = void (APIENTRY *)(unsigned int, int, unsigned int, unsigned char, int, const void*);
+using PFNGLDELETEBUFFERSPROC = void (APIENTRY *)(int, const unsigned int*);
+
+static PFNGLGENVERTEXARRAYSPROC glGenVertexArraysPtr;
+static PFNGLBINDVERTEXARRAYPROC glBindVertexArrayPtr;
+static PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArraysPtr;
+static PFNGLGENBUFFERSPROC glGenBuffersPtr;
+static PFNGLBINDBUFFERPROC glBindBufferPtr;
+static PFNGLBUFFERDATAPROC glBufferDataPtr;
+static PFNGLCREATESHADERPROC glCreateShaderPtr;
+static PFNGLSHADERSOURCEPROC glShaderSourcePtr;
+static PFNGLCOMPILESHADERPROC glCompileShaderPtr;
+static PFNGLGETSHADERIVPROC glGetShaderivPtr;
+static PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLogPtr;
+static PFNGLDELETESHADERPROC glDeleteShaderPtr;
+static PFNGLCREATEPROGRAMPROC glCreateProgramPtr;
+static PFNGLATTACHSHADERPROC glAttachShaderPtr;
+static PFNGLLINKPROGRAMPROC glLinkProgramPtr;
+static PFNGLGETPROGRAMIVPROC glGetProgramivPtr;
+static PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLogPtr;
+static PFNGLUSEPROGRAMPROC glUseProgramPtr;
+static PFNGLDELETEPROGRAMPROC glDeleteProgramPtr;
+static PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocationPtr;
+static PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fvPtr;
+static PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArrayPtr;
+static PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointerPtr;
+static PFNGLDELETEBUFFERSPROC glDeleteBuffersPtr;
+
+namespace
+{
+    void* getGLProc(const char* name)
+    {
+        void* proc = reinterpret_cast<void*>(wglGetProcAddress(name));
+        if (proc == nullptr || proc == reinterpret_cast<void*>(0x1) ||
+            proc == reinterpret_cast<void*>(0x2) || proc == reinterpret_cast<void*>(0x3) ||
+            proc == reinterpret_cast<void*>(-1))
+        {
+            HMODULE module = GetModuleHandleW(L"opengl32.dll");
+            proc = reinterpret_cast<void*>(GetProcAddress(module, name));
+        }
+        return proc;
+    }
+
+    bool loadProc(void** target, const char* name)
+    {
+        *target = getGLProc(name);
+        return *target != nullptr;
+    }
+
+    std::string readText(const char* path)
+    {
+        std::ifstream file(path, std::ios::binary);
+        if (!file)
+            return {};
+
+        std::ostringstream stream;
+        stream << file.rdbuf();
+        return stream.str();
+    }
+}
+
+namespace Engine::Graphics
+{
+    bool Renderer::loadOpenGLFunctions()
+    {
+#define LOAD(function, name) if (!loadProc(reinterpret_cast<void**>(&function), name)) return false
+        LOAD(glGenVertexArraysPtr, "glGenVertexArrays");
+        LOAD(glBindVertexArrayPtr, "glBindVertexArray");
+        LOAD(glDeleteVertexArraysPtr, "glDeleteVertexArrays");
+        LOAD(glGenBuffersPtr, "glGenBuffers");
+        LOAD(glBindBufferPtr, "glBindBuffer");
+        LOAD(glBufferDataPtr, "glBufferData");
+        LOAD(glDeleteBuffersPtr, "glDeleteBuffers");
+        LOAD(glCreateShaderPtr, "glCreateShader");
+        LOAD(glShaderSourcePtr, "glShaderSource");
+        LOAD(glCompileShaderPtr, "glCompileShader");
+        LOAD(glGetShaderivPtr, "glGetShaderiv");
+        LOAD(glGetShaderInfoLogPtr, "glGetShaderInfoLog");
+        LOAD(glDeleteShaderPtr, "glDeleteShader");
+        LOAD(glCreateProgramPtr, "glCreateProgram");
+        LOAD(glAttachShaderPtr, "glAttachShader");
+        LOAD(glLinkProgramPtr, "glLinkProgram");
+        LOAD(glGetProgramivPtr, "glGetProgramiv");
+        LOAD(glGetProgramInfoLogPtr, "glGetProgramInfoLog");
+        LOAD(glUseProgramPtr, "glUseProgram");
+        LOAD(glDeleteProgramPtr, "glDeleteProgram");
+        LOAD(glGetUniformLocationPtr, "glGetUniformLocation");
+        LOAD(glUniformMatrix4fvPtr, "glUniformMatrix4fv");
+        LOAD(glEnableVertexAttribArrayPtr, "glEnableVertexAttribArray");
+        LOAD(glVertexAttribPointerPtr, "glVertexAttribPointer");
+#undef LOAD
+        return true;
+    }
+
+    bool Renderer::createShaderProgram()
+    {
+        const std::string vertexSource = readText("assets/shaders/basic.vert");
+        const std::string fragmentSource = readText("assets/shaders/basic.frag");
+        if (vertexSource.empty() || fragmentSource.empty())
+            return false;
+
+        const auto compile = [](unsigned int type, const std::string& source) -> unsigned int
+        {
+            const unsigned int shader = glCreateShaderPtr(type);
+            const char* sourcePointer = source.c_str();
+            glShaderSourcePtr(shader, 1, &sourcePointer, nullptr);
+            glCompileShaderPtr(shader);
+
+            int compiled = 0;
+            glGetShaderivPtr(shader, GL_COMPILE_STATUS, &compiled);
+            if (!compiled)
+            {
+                char log[2048]{};
+                int length = 0;
+                glGetShaderInfoLogPtr(shader, sizeof(log), &length, log);
+                OutputDebugStringA(log);
+                glDeleteShaderPtr(shader);
+                return 0;
+            }
+            return shader;
+        };
+
+        const unsigned int vertexShader = compile(GL_VERTEX_SHADER, vertexSource);
+        const unsigned int fragmentShader = compile(GL_FRAGMENT_SHADER, fragmentSource);
+        if (!vertexShader || !fragmentShader)
+        {
+            if (vertexShader)
+                glDeleteShaderPtr(vertexShader);
+            if (fragmentShader)
+                glDeleteShaderPtr(fragmentShader);
+            return false;
+        }
+
+        m_program = glCreateProgramPtr();
+        glAttachShaderPtr(m_program, vertexShader);
+        glAttachShaderPtr(m_program, fragmentShader);
+        glLinkProgramPtr(m_program);
+        glDeleteShaderPtr(vertexShader);
+        glDeleteShaderPtr(fragmentShader);
+
+        int linked = 0;
+        glGetProgramivPtr(m_program, GL_LINK_STATUS, &linked);
+        if (!linked)
+        {
+            char log[2048]{};
+            int length = 0;
+            glGetProgramInfoLogPtr(m_program, sizeof(log), &length, log);
+            OutputDebugStringA(log);
+            return false;
+        }
+
+        m_mvpLocation = glGetUniformLocationPtr(m_program, "uMVP");
+        return m_mvpLocation >= 0;
+    }
+
+    bool Renderer::initialize(HDC deviceContext, const Scene::Scene& scene)
+    {
+        m_deviceContext = deviceContext;
+        if (!loadOpenGLFunctions() || !createShaderProgram())
+            return false;
+
+        m_meshes.reserve(scene.meshes().size());
+        for (const Scene::Mesh& mesh : scene.meshes())
+        {
+            GpuMesh gpuMesh;
+            gpuMesh.vertexCount = static_cast<int>(mesh.vertices.size());
+            glGenVertexArraysPtr(1, &gpuMesh.vertexArray);
+            glBindVertexArrayPtr(gpuMesh.vertexArray);
+            glGenBuffersPtr(1, &gpuMesh.vertexBuffer);
+            glBindBufferPtr(GL_ARRAY_BUFFER, gpuMesh.vertexBuffer);
+            glBufferDataPtr(
+                GL_ARRAY_BUFFER,
+                static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(Math::Vec3)),
+                mesh.vertices.data(),
+                GL_STATIC_DRAW
+            );
+            glVertexAttribPointerPtr(0, 3, GL_FLOAT, GL_FALSE, sizeof(Math::Vec3), nullptr);
+            glEnableVertexAttribArrayPtr(0);
+            m_meshes.push_back(gpuMesh);
+        }
+
+        m_initialized = true;
+        return true;
+    }
+
+    void Renderer::render(const Scene::Scene& scene, const Camera& camera, int width, int height)
+    {
+        if (!m_initialized || width <= 0 || height <= 0)
+            return;
+
+        glViewport(0, 0, width, height);
+        glEnable(GL_DEPTH_TEST);
+        glClearColor(0.08f, 0.10f, 0.15f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        const Math::Mat4 view = camera.viewMatrix();
+        const Math::Mat4 projection = Math::perspective(
+            70.0f,
+            static_cast<float>(width) / static_cast<float>(height),
+            0.1f,
+            100.0f
+        );
+
+        glUseProgramPtr(m_program);
+        for (const Scene::MeshInstance& object : scene.objects())
+        {
+            if (object.meshIndex >= m_meshes.size())
+                continue;
+
+            const Math::Mat4 model = Math::translation(object.transform.position);
+            const Math::Mat4 mvp = Math::multiply(projection, Math::multiply(view, model));
+            const GpuMesh& mesh = m_meshes[object.meshIndex];
+            glUniformMatrix4fvPtr(m_mvpLocation, 1, GL_FALSE, mvp.m);
+            glBindVertexArrayPtr(mesh.vertexArray);
+            glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
+        }
+
+        SwapBuffers(m_deviceContext);
+    }
+
+    void Renderer::destroyMeshes()
+    {
+        if (glDeleteBuffersPtr)
+        {
+            for (const GpuMesh& mesh : m_meshes)
+            {
+                if (mesh.vertexBuffer)
+                    glDeleteBuffersPtr(1, &mesh.vertexBuffer);
+            }
+        }
+        if (glDeleteVertexArraysPtr)
+        {
+            for (const GpuMesh& mesh : m_meshes)
+            {
+                if (mesh.vertexArray)
+                    glDeleteVertexArraysPtr(1, &mesh.vertexArray);
+            }
+        }
+        m_meshes.clear();
+    }
+
+    void Renderer::shutdown()
+    {
+        destroyMeshes();
+        if (m_program && glDeleteProgramPtr)
+            glDeleteProgramPtr(m_program);
+        m_program = 0;
+        m_mvpLocation = -1;
+        m_initialized = false;
+        m_deviceContext = nullptr;
+    }
+}

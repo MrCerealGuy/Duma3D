@@ -16,6 +16,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_executable(Duma3D
     src/main.cpp
     src/Engine/Application.cpp
+    src/Engine/Graphics/Camera.cpp
+    src/Engine/Graphics/Renderer.cpp
+    src/Engine/Math/Math.cpp
+    src/Engine/Scene/Mesh.cpp
+    src/Engine/Scene/Scene.cpp
 )
 
 # --------------------------------------------------

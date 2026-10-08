@@ -1,6 +1,6 @@
 # Duma3D
 
-Duma3D ist ein experimenteller 3D-Engine-Starter für Windows. Der aktuelle Stand öffnet ein Win32-Fenster, erstellt über WGL einen OpenGL-3.3-Core-Kontext und rendert einen Würfel mit frei beweglicher Kamera.
+Duma3D ist ein experimenteller 3D-Engine-Starter für Windows. Der aktuelle Stand öffnet ein Win32-Fenster, erstellt über WGL einen OpenGL-3.3-Core-Kontext und rendert mehrere Würfel aus einer einfachen Szene mit frei beweglicher Kamera.
 
 ## Technischer Pfad
 
@@ -51,7 +51,7 @@ Danach `build\Duma3D.exe` ausführen. Die Shader-Assets werden in `build\assets`
 
 ## Aktueller Umfang
 
-Der Renderer zeichnet einen fest im Anwendungscode definierten Würfel. Szenen-, Mesh-, Material- und Assetverwaltung gibt es noch nicht. Grafik- und Plattforminitialisierung befinden sich derzeit gemeinsam in `src/Engine/Application.cpp`; ihre Aufteilung in eigenständige Engine-Module ist ein nächster Entwicklungsschritt.
+Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. Eine Szene kann Meshes und platzierte Instanzen verwalten; der aktuelle Demo-Inhalt verwendet ein Würfelmesh mehrfach. Beleuchtung, Materialien, Modellimport und Assetverwaltung gibt es noch nicht. Die Win32-Plattforminitialisierung bleibt in `src/Engine/Application.cpp`.
 
 ## Struktur
 
@@ -66,11 +66,27 @@ Duma3D/
 │       └── basic.frag
 ├── include/
 │   └── Engine/
-│       └── Application.hpp
+│       ├── Application.hpp
+│       ├── Graphics/
+│       │   ├── Camera.hpp
+│       │   └── Renderer.hpp
+│       ├── Math/
+│       │   └── Math.hpp
+│       └── Scene/
+│           ├── Mesh.hpp
+│           └── Scene.hpp
 ├── src/
 │   ├── main.cpp
 │   └── Engine/
-│       └── Application.cpp
+│       ├── Application.cpp
+│       ├── Graphics/
+│       │   ├── Camera.cpp
+│       │   └── Renderer.cpp
+│       ├── Math/
+│       │   └── Math.cpp
+│       └── Scene/
+│           ├── Mesh.cpp
+│           └── Scene.cpp
 ├── CMakeLists.txt
 ├── Duma3D.code-workspace
 └── README.md
