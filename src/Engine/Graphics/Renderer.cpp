@@ -9,10 +9,12 @@
 #include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <cwctype>
 #include <fstream>
 #include <limits>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -416,6 +418,19 @@ namespace
     {
         return loadPpm(path, image) || loadWithWindowsImagingComponent(path, image);
     }
+
+    std::wstring textureCacheKey(const std::string& path)
+    {
+        if (path.empty())
+            return L"<default-white>";
+
+        std::wstring key = Engine::Assets::resolveAssetPath(path).lexically_normal().wstring();
+        std::transform(key.begin(), key.end(), key.begin(), [](wchar_t character)
+        {
+            return static_cast<wchar_t>(std::towlower(character));
+        });
+        return key;
+    }
 }
 
 namespace Engine::Graphics
@@ -658,6 +673,7 @@ namespace Engine::Graphics
             return false;
 
         m_meshes.reserve(scene.meshes().size());
+        std::unordered_map<std::wstring, unsigned int> textureCache;
         for (const Scene::Mesh& mesh : scene.meshes())
         {
             GpuMesh gpuMesh;
@@ -720,17 +736,27 @@ namespace Engine::Graphics
             );
             glEnableVertexAttribArrayPtr(5);
 
-            const auto createSection = [&gpuMesh](const Scene::MeshSection& section)
+            const auto createSection = [this, &gpuMesh, &textureCache](const Scene::MeshSection& section)
             {
+                const std::wstring key = textureCacheKey(section.diffuseTexturePath);
+                const auto cachedTexture = textureCache.find(key);
+                GpuSection gpuSection;
+                gpuSection.firstIndex = static_cast<int>(section.firstIndex);
+                gpuSection.indexCount = static_cast<int>(section.indexCount);
+                if (cachedTexture != textureCache.end())
+                {
+                    gpuSection.texture = cachedTexture->second;
+                    gpuMesh.sections.push_back(gpuSection);
+                    return;
+                }
+
                 ImageData image;
                 if (!section.diffuseTexturePath.empty() && !loadImage(section.diffuseTexturePath, image))
                 {
                     OutputDebugStringA(("Could not load texture: " + section.diffuseTexturePath + "\n").c_str());
                 }
-                GpuSection gpuSection;
-                gpuSection.firstIndex = static_cast<int>(section.firstIndex);
-                gpuSection.indexCount = static_cast<int>(section.indexCount);
                 glGenTextures(1, &gpuSection.texture);
+                m_textures.push_back(gpuSection.texture);
                 glBindTexture(GL_TEXTURE_2D, gpuSection.texture);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -743,6 +769,7 @@ namespace Engine::Graphics
                 );
                 glGenerateMipmapPtr(GL_TEXTURE_2D);
                 glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+                textureCache.emplace(key, gpuSection.texture);
                 gpuMesh.sections.push_back(gpuSection);
             };
 
@@ -908,14 +935,10 @@ namespace Engine::Graphics
                     glDeleteVertexArraysPtr(1, &mesh.vertexArray);
             }
         }
-        for (const GpuMesh& mesh : m_meshes)
-        {
-            for (const GpuSection& section : mesh.sections)
-            {
-                if (section.texture)
-                    glDeleteTextures(1, &section.texture);
-            }
-        }
+        for (const unsigned int texture : m_textures)
+            if (texture)
+                glDeleteTextures(1, &texture);
+        m_textures.clear();
         m_meshes.clear();
     }
 

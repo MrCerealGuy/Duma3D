@@ -63,6 +63,7 @@ namespace Engine::Graphics
         std::array<int, Scene::Scene::maximumPointLights> m_pointLightIntensityLocations{};
         std::array<int, Scene::Scene::maximumPointLights> m_pointLightAttenuationLocations{};
         std::vector<GpuMesh> m_meshes;
+        std::vector<unsigned int> m_textures;
         bool m_initialized = false;
     };
 }

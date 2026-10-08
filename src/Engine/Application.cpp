@@ -5,6 +5,9 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
+#include <cstring>
+#include <limits>
 #include <utility>
 
 #ifndef WGL_CONTEXT_MAJOR_VERSION_ARB
@@ -15,6 +18,26 @@
 #endif
 
 using PFNWGLCREATECONTEXTATTRIBSARBPROC = HGLRC (WINAPI *)(HDC, HGLRC, const int*);
+using PFNWGLSWAPINTERVALEXTPROC = BOOL (WINAPI *)(int);
+
+namespace
+{
+    template <typename Function>
+    Function getWglFunction(const char* name)
+    {
+        const PROC address = wglGetProcAddress(name);
+        std::uintptr_t rawAddress = 0;
+        static_assert(sizeof(address) == sizeof(rawAddress));
+        std::memcpy(&rawAddress, &address, sizeof(address));
+        if (rawAddress <= 3 || rawAddress == std::numeric_limits<std::uintptr_t>::max())
+            return nullptr;
+
+        Function function = nullptr;
+        static_assert(sizeof(function) == sizeof(address));
+        std::memcpy(&function, &address, sizeof(function));
+        return function;
+    }
+}
 
 Application::Application(int width, int height, std::wstring title)
     : width_(width),
@@ -94,8 +117,8 @@ bool Application::createOpenGLContext()
     if (!tempContext_ || !wglMakeCurrent(hdc_, tempContext_))
         return false;
 
-    const auto createContextAttributes = reinterpret_cast<PFNWGLCREATECONTEXTATTRIBSARBPROC>(
-        wglGetProcAddress("wglCreateContextAttribsARB")
+    const auto createContextAttributes = getWglFunction<PFNWGLCREATECONTEXTATTRIBSARBPROC>(
+        "wglCreateContextAttribsARB"
     );
     if (createContextAttributes)
     {
@@ -121,6 +144,10 @@ bool Application::createOpenGLContext()
         glrc_ = tempContext_;
         tempContext_ = nullptr;
     }
+
+    const auto setSwapInterval = getWglFunction<PFNWGLSWAPINTERVALEXTPROC>("wglSwapIntervalEXT");
+    if (setSwapInterval)
+        setSwapInterval(1);
 
     return true;
 }
