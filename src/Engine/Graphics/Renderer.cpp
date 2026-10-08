@@ -42,6 +42,9 @@
 #ifndef GL_CLAMP_TO_BORDER
 #define GL_CLAMP_TO_BORDER 0x812D
 #endif
+#ifndef GL_LINEAR_MIPMAP_LINEAR
+#define GL_LINEAR_MIPMAP_LINEAR 0x2703
+#endif
 #ifndef GL_NONE
 #define GL_NONE 0
 #endif
@@ -100,6 +103,7 @@ using PFNGLFRAMEBUFFERTEXTURE2DPROC = void (APIENTRY *)(unsigned int, unsigned i
 using PFNGLCHECKFRAMEBUFFERSTATUSPROC = unsigned int (APIENTRY *)(unsigned int);
 using PFNGLDELETEFRAMEBUFFERSPROC = void (APIENTRY *)(int, const unsigned int*);
 using PFNGLACTIVETEXTUREPROC = void (APIENTRY *)(unsigned int);
+using PFNGLGENERATEMIPMAPPROC = void (APIENTRY *)(unsigned int);
 
 static PFNGLGENVERTEXARRAYSPROC glGenVertexArraysPtr;
 static PFNGLBINDVERTEXARRAYPROC glBindVertexArrayPtr;
@@ -134,6 +138,7 @@ static PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2DPtr;
 static PFNGLCHECKFRAMEBUFFERSTATUSPROC glCheckFramebufferStatusPtr;
 static PFNGLDELETEFRAMEBUFFERSPROC glDeleteFramebuffersPtr;
 static PFNGLACTIVETEXTUREPROC glActiveTexturePtr;
+static PFNGLGENERATEMIPMAPPROC glGenerateMipmapPtr;
 
 namespace
 {
@@ -338,6 +343,7 @@ namespace Engine::Graphics
         LOAD(glCheckFramebufferStatusPtr, "glCheckFramebufferStatus");
         LOAD(glDeleteFramebuffersPtr, "glDeleteFramebuffers");
         LOAD(glActiveTexturePtr, "glActiveTexture");
+        LOAD(glGenerateMipmapPtr, "glGenerateMipmap");
 #undef LOAD
         return true;
     }
@@ -613,7 +619,7 @@ namespace Engine::Graphics
                 gpuSection.indexCount = static_cast<int>(section.indexCount);
                 glGenTextures(1, &gpuSection.texture);
                 glBindTexture(GL_TEXTURE_2D, gpuSection.texture);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -622,6 +628,7 @@ namespace Engine::Graphics
                     GL_TEXTURE_2D, 0, GL_RGB, image.width, image.height, 0,
                     GL_RGB, GL_UNSIGNED_BYTE, image.rgb.data()
                 );
+                glGenerateMipmapPtr(GL_TEXTURE_2D);
                 glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
                 gpuMesh.sections.push_back(gpuSection);
             };
