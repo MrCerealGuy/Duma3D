@@ -19,6 +19,12 @@ uniform vec3 uPointLightColors[4];
 uniform float uPointLightIntensities[4];
 uniform vec3 uPointLightAttenuations[4];
 out vec4 FragColor;
+vec3 linearToSrgb(vec3 color) {
+    color = max(color, vec3(0.0));
+    vec3 lowerRange = 12.92 * color;
+    vec3 upperRange = 1.055 * pow(color, vec3(1.0 / 2.4)) - 0.055;
+    return mix(upperRange, lowerRange, lessThanEqual(color, vec3(0.0031308)));
+}
 float directionalShadow(vec3 normal, vec3 lightDirection) {
     vec3 projected = vLightSpacePosition.xyz / vLightSpacePosition.w;
     projected = projected * 0.5 + 0.5;
@@ -67,5 +73,5 @@ void main() {
     }
     vec3 textureColor = texture(uDiffuseTexture, vTexCoord).rgb;
     vec3 diffuseColor = uAlbedo * vDiffuseColor * textureColor * diffuseLighting;
-    FragColor = vec4(diffuseColor + specularLighting, 1.0);
+    FragColor = vec4(linearToSrgb(diffuseColor + specularLighting), 1.0);
 }

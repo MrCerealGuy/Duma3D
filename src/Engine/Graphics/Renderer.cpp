@@ -45,6 +45,9 @@
 #ifndef GL_LINEAR_MIPMAP_LINEAR
 #define GL_LINEAR_MIPMAP_LINEAR 0x2703
 #endif
+#ifndef GL_SRGB8
+#define GL_SRGB8 0x8C41
+#endif
 #ifndef GL_NONE
 #define GL_NONE 0
 #endif
@@ -625,7 +628,7 @@ namespace Engine::Graphics
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
                 glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
                 glTexImage2D(
-                    GL_TEXTURE_2D, 0, GL_RGB, image.width, image.height, 0,
+                    GL_TEXTURE_2D, 0, GL_SRGB8, image.width, image.height, 0,
                     GL_RGB, GL_UNSIGNED_BYTE, image.rgb.data()
                 );
                 glGenerateMipmapPtr(GL_TEXTURE_2D);
