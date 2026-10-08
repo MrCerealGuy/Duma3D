@@ -18,7 +18,7 @@ private:
     bool createOpenGLContext();
     void destroyOpenGL();
     void update(float dt);
-    void processMouse();
+    void handleRawInput(HRAWINPUT inputHandle);
     void handleKeyDown(WPARAM key);
     void handleKeyUp(WPARAM key);
 
@@ -34,8 +34,6 @@ private:
 
     bool running_ = true;
     bool keys_[256]{};
-    bool firstMouse_ = true;
-    POINT lastMouse_{};
     Engine::Graphics::Camera camera_;
     Engine::Graphics::Renderer renderer_;
     Engine::Scene::Scene scene_;

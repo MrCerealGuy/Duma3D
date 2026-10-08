@@ -63,6 +63,13 @@ bool Application::createWindow()
         return false;
 
     SetWindowLongPtrW(hwnd_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+    RAWINPUTDEVICE mouseInput{};
+    mouseInput.usUsagePage = 0x01;
+    mouseInput.usUsage = 0x02;
+    mouseInput.hwndTarget = hwnd_;
+    if (!RegisterRawInputDevices(&mouseInput, 1, sizeof(mouseInput)))
+        return false;
+
     hdc_ = GetDC(hwnd_);
     return hdc_ != nullptr;
 }
@@ -152,20 +159,17 @@ void Application::update(float dt)
     if (keys_['A']) camera_.moveRight(-speed);
 }
 
-void Application::processMouse()
+void Application::handleRawInput(HRAWINPUT inputHandle)
 {
-    POINT position{};
-    GetCursorPos(&position);
-    ScreenToClient(hwnd_, &position);
-    if (firstMouse_)
-    {
-        lastMouse_ = position;
-        firstMouse_ = false;
-    }
+    RAWINPUT input{};
+    UINT inputSize = sizeof(input);
+    if (GetRawInputData(inputHandle, RID_INPUT, &input, &inputSize, sizeof(RAWINPUTHEADER)) == static_cast<UINT>(-1) ||
+        input.header.dwType != RIM_TYPEMOUSE || (input.data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE) != 0)
+        return;
 
-    const float deltaX = static_cast<float>(position.x - lastMouse_.x) * 0.12f;
-    const float deltaY = static_cast<float>(lastMouse_.y - position.y) * 0.12f;
-    lastMouse_ = position;
+    constexpr float mouseSensitivity = 0.12f;
+    const float deltaX = static_cast<float>(input.data.mouse.lLastX) * mouseSensitivity;
+    const float deltaY = -static_cast<float>(input.data.mouse.lLastY) * mouseSensitivity;
     camera_.rotate(deltaX, deltaY);
 }
 
@@ -194,9 +198,9 @@ LRESULT CALLBACK Application::WindowProc(HWND hwnd, UINT message, WPARAM wParam,
         case WM_KEYUP:
             if (app) app->handleKeyUp(wParam);
             return 0;
-        case WM_MOUSEMOVE:
-            if (app) app->processMouse();
-            return 0;
+        case WM_INPUT:
+            if (app) app->handleRawInput(reinterpret_cast<HRAWINPUT>(lParam));
+            return DefWindowProcW(hwnd, message, wParam, lParam);
         case WM_SIZE:
             if (app)
             {
@@ -226,7 +230,6 @@ int Application::run()
     ShowWindow(hwnd_, SW_SHOWMAXIMIZED);
     UpdateWindow(hwnd_);
     ShowCursor(FALSE);
-    SetCapture(hwnd_);
 
     auto previous = std::chrono::steady_clock::now();
     MSG message{};
@@ -248,7 +251,6 @@ int Application::run()
         renderer_.render(scene_, camera_, width_, height_);
     }
 
-    ReleaseCapture();
     ShowCursor(TRUE);
     return 0;
 }

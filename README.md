@@ -48,7 +48,7 @@ Danach `build\Duma3D.exe` ausführen. Die Assets werden in `build\assets` neben 
 ## Steuerung
 
 - WASD: Kamera bewegen
-- Maus: Kamera drehen
+- Maus: Kamera drehen (relative Raw-Input-Bewegung)
 - ESC: beenden
 
 ## Aktueller Umfang
