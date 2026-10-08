@@ -48,15 +48,17 @@ Danach `build\Duma3D.exe` ausführen. Die Assets werden in `build\assets` neben 
 
 ## Steuerung
 
-- WASD: Kamera bewegen
+- WASD: Kamera bewegen und durch die offenen Hauseingänge gehen
 - Maus: Kamera drehen (relative Raw-Input-Bewegung)
-- Leertaste / Strg: Kamera nach oben / unten bewegen
+- G: zwischen Flug- und Laufmodus umschalten
+- Flugmodus: Leertaste / Strg bewegen die Kamera nach oben / unten
+- Laufmodus: Leertaste springen; Schwerkraft, Gelände und Hauswände begrenzen die Bewegung
 - Umschalt: schneller bewegen
 - ESC: beenden
 
 ## Aktueller Umfang
 
-Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. OBJ-Vertices werden anhand ihrer Attribute dedupliziert; GPU-Indexpuffer verwenden 16 Bit, wenn alle Indizes passen, sonst 32 Bit. Haupt- und Schattenpass überspringen Objekte, deren Mesh-Begrenzungskugel außerhalb des jeweiligen Kamera- oder Lichtfrustums liegt; das Lichtfrustum wird aus den Szenenobjekten berechnet. Als prozedurale Grundmeshes gibt es eine Bodenebene, einen Würfel und eine UV-Kugel mit glatten Normalen. Die Beleuchtung kombiniert Umgebungslicht, ein gerichtetes Licht mit 3×3-PCF-Schatten, bis zu vier abschwächende Punktlichter, Blinn-Phong-Glanz und Selbstleuchten. Farbtexturen werden als sRGB dekodiert; Beleuchtung und Reinhard-Tonemapping erfolgen linear, danach wird die Ausgabe wieder sRGB-kodiert. Der Wavefront-Importer liest Positionen, Normalen, UV-Texturkoordinaten, Flächen und Smoothing-Gruppen (`s`), trianguliert Polygonflächen und berechnet fehlende Normalen flach oder gruppenweise. MTL-Diffusfarben (`Kd`), Glanzfarben (`Ks`), Selbstleuchtfarben (`Ke`), Glanzschärfe (`Ns`) und einfache `map_Kd`-Pfade werden pro Materialabschnitt übernommen; diffuse Texturen werden mit generierten Mipmaps und trilinearer Filterung dargestellt und bei identischen Pfaden gemeinsam auf der GPU gehalten. Der Texturloader unterstützt P3- und P6-PPM sowie PNG, JPEG und BMP über Windows Imaging Component; erweiterte MTL-Map-Optionen werden noch nicht unterstützt. Die Win32-Plattforminitialisierung bleibt in `src/Engine/Application.cpp`.
+Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. OBJ-Vertices werden anhand ihrer Attribute dedupliziert; GPU-Indexpuffer verwenden 16 Bit, wenn alle Indizes passen, sonst 32 Bit. Haupt- und Schattenpass überspringen Objekte, deren Mesh-Begrenzungskugel außerhalb des jeweiligen Kamera- oder Lichtfrustums liegt; das Lichtfrustum wird aus den Szenenobjekten berechnet. Die Demo-Szene enthält ein hügeliges Gelände, zwei Häuser mit begehbaren Räumen und offenen Türen, Fenster, Wege und Bäume; vier farbige Punktlichter leuchten die Räume unterschiedlich aus. Als prozedurale Grundmeshes gibt es eine Bodenebene, einen Würfel und eine UV-Kugel mit glatten Normalen. Die Beleuchtung kombiniert Umgebungslicht, ein gerichtetes Licht mit 3×3-PCF-Schatten, bis zu vier abschwächende Punktlichter, Blinn-Phong-Glanz und Selbstleuchten. Farbtexturen werden als sRGB dekodiert; Beleuchtung und Reinhard-Tonemapping erfolgen linear, danach wird die Ausgabe wieder sRGB-kodiert. Der Wavefront-Importer liest Positionen, Normalen, UV-Texturkoordinaten, Flächen und Smoothing-Gruppen (`s`), trianguliert Polygonflächen und berechnet fehlende Normalen flach oder gruppenweise. MTL-Diffusfarben (`Kd`), Glanzfarben (`Ks`), Selbstleuchtfarben (`Ke`), Glanzschärfe (`Ns`) und einfache `map_Kd`-Pfade werden pro Materialabschnitt übernommen; diffuse Texturen werden mit generierten Mipmaps und trilinearer Filterung dargestellt und bei identischen Pfaden gemeinsam auf der GPU gehalten. Der Texturloader unterstützt P3- und P6-PPM sowie PNG, JPEG und BMP über Windows Imaging Component; erweiterte MTL-Map-Optionen werden noch nicht unterstützt. Die Win32-Plattforminitialisierung bleibt in `src/Engine/Application.cpp`.
 
 ## Struktur
 

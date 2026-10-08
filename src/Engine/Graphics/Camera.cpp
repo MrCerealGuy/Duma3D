@@ -30,6 +30,18 @@ namespace Engine::Graphics
         m_position.y += amount;
     }
 
+    void Camera::moveOnGround(float forwardAmount, float rightAmount)
+    {
+        constexpr float degreesToRadians = 3.14159265359f / 180.0f;
+        const float yaw = m_yaw * degreesToRadians;
+        const float forwardX = std::cos(yaw);
+        const float forwardZ = std::sin(yaw);
+        const float rightX = -forwardZ;
+        const float rightZ = forwardX;
+        m_position.x += forwardX * forwardAmount + rightX * rightAmount;
+        m_position.z += forwardZ * forwardAmount + rightZ * rightAmount;
+    }
+
     void Camera::rotate(float yawDelta, float pitchDelta)
     {
         m_yaw += yawDelta;

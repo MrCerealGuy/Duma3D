@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -22,6 +23,10 @@ using PFNWGLSWAPINTERVALEXTPROC = BOOL (WINAPI *)(int);
 
 namespace
 {
+    constexpr float playerRadius = 0.28f;
+    constexpr float playerEyeHeight = 1.7f;
+    constexpr float playerHeight = 1.8f;
+
     template <typename Function>
     Function getWglFunction(const char* name)
     {
@@ -36,6 +41,25 @@ namespace
         static_assert(sizeof(function) == sizeof(address));
         std::memcpy(&function, &address, sizeof(function));
         return function;
+    }
+
+    bool collidesWithScene(const Engine::Scene::Scene& scene, Engine::Math::Vec3 position)
+    {
+        const float feet = position.y - playerEyeHeight;
+        const float head = feet + playerHeight;
+        for (const Engine::Scene::CollisionBox& box : scene.colliders())
+        {
+            if (head <= box.minimum.y || feet >= box.maximum.y)
+                continue;
+
+            const float closestX = std::clamp(position.x, box.minimum.x, box.maximum.x);
+            const float closestZ = std::clamp(position.z, box.minimum.z, box.maximum.z);
+            const float offsetX = position.x - closestX;
+            const float offsetZ = position.z - closestZ;
+            if (offsetX * offsetX + offsetZ * offsetZ < playerRadius * playerRadius)
+                return true;
+        }
+        return false;
     }
 }
 
@@ -179,14 +203,90 @@ void Application::destroyOpenGL()
 
 void Application::update(float dt)
 {
-    const float baseSpeed = keys_[VK_SHIFT] ? 9.0f : 3.0f;
+    const float baseSpeed = keys_[VK_SHIFT] ? 6.0f : 3.0f;
     const float speed = baseSpeed * dt;
-    if (keys_['W']) camera_.moveForward(speed);
-    if (keys_['S']) camera_.moveForward(-speed);
-    if (keys_['D']) camera_.moveRight(speed);
-    if (keys_['A']) camera_.moveRight(-speed);
-    if (keys_[VK_SPACE]) camera_.moveUp(speed);
-    if (keys_[VK_CONTROL]) camera_.moveUp(-speed);
+    if (!gravityMode_)
+    {
+        if (keys_['W']) camera_.moveForward(speed);
+        if (keys_['S']) camera_.moveForward(-speed);
+        if (keys_['D']) camera_.moveRight(speed);
+        if (keys_['A']) camera_.moveRight(-speed);
+        if (keys_[VK_SPACE]) camera_.moveUp(speed);
+        if (keys_[VK_CONTROL]) camera_.moveUp(-speed);
+        return;
+    }
+
+    float forward = static_cast<float>(keys_['W']) - static_cast<float>(keys_['S']);
+    float right = static_cast<float>(keys_['D']) - static_cast<float>(keys_['A']);
+    const float inputLength = std::sqrt(forward * forward + right * right);
+    if (inputLength > 1.0f)
+    {
+        forward /= inputLength;
+        right /= inputLength;
+    }
+
+    const Engine::Math::Vec3 startingPosition = camera_.position();
+    camera_.moveOnGround(forward * speed, 0.0f);
+    if (collidesWithScene(scene_, camera_.position()))
+        camera_.setPosition(startingPosition);
+    const Engine::Math::Vec3 afterForward = camera_.position();
+    camera_.moveOnGround(0.0f, right * speed);
+    if (collidesWithScene(scene_, camera_.position()))
+        camera_.setPosition(afterForward);
+
+    Engine::Math::Vec3 position = camera_.position();
+    const float groundHeight = Engine::Scene::sampleDemoTerrainHeight(position.x, position.z);
+    float feet = position.y - playerEyeHeight;
+    const bool onGround = feet <= groundHeight + 0.02f && verticalVelocity_ <= 0.0f;
+    if (jumpRequested_ && onGround)
+        verticalVelocity_ = 6.0f;
+    jumpRequested_ = false;
+
+    verticalVelocity_ -= 18.0f * dt;
+    float nextFeet = feet + verticalVelocity_ * dt;
+    bool hitCeiling = false;
+    if (verticalVelocity_ > 0.0f)
+    {
+        for (const Engine::Scene::CollisionBox& box : scene_.colliders())
+        {
+            const float closestX = std::clamp(position.x, box.minimum.x, box.maximum.x);
+            const float closestZ = std::clamp(position.z, box.minimum.z, box.maximum.z);
+            const float offsetX = position.x - closestX;
+            const float offsetZ = position.z - closestZ;
+            if (offsetX * offsetX + offsetZ * offsetZ >= playerRadius * playerRadius ||
+                feet + playerHeight > box.minimum.y ||
+                nextFeet + playerHeight <= box.minimum.y)
+                continue;
+
+            nextFeet = box.minimum.y - playerHeight;
+            verticalVelocity_ = 0.0f;
+            hitCeiling = true;
+            break;
+        }
+    }
+    if (!hitCeiling && nextFeet <= groundHeight)
+    {
+        nextFeet = groundHeight;
+        verticalVelocity_ = 0.0f;
+    }
+    position.y = nextFeet + playerEyeHeight;
+    camera_.setPosition(position);
+}
+
+void Application::toggleMovementMode()
+{
+    gravityMode_ = !gravityMode_;
+    verticalVelocity_ = 0.0f;
+    jumpRequested_ = false;
+    if (gravityMode_)
+    {
+        Engine::Math::Vec3 position = camera_.position();
+        position.y = Engine::Scene::sampleDemoTerrainHeight(position.x, position.z) + playerEyeHeight;
+        camera_.setPosition(position);
+    }
+
+    const std::wstring modeTitle = title_ + (gravityMode_ ? L" [Laufmodus]" : L" [Flugmodus]");
+    SetWindowTextW(hwnd_, modeTitle.c_str());
 }
 
 void Application::handleRawInput(HRAWINPUT inputHandle)
@@ -205,8 +305,13 @@ void Application::handleRawInput(HRAWINPUT inputHandle)
 
 void Application::handleKeyDown(WPARAM key)
 {
+    const bool wasDown = key < 256 && keys_[key];
     if (key < 256)
         keys_[key] = true;
+    if (key == 'G' && !wasDown)
+        toggleMovementMode();
+    if (key == VK_SPACE && !wasDown && gravityMode_)
+        jumpRequested_ = true;
     if (key == VK_ESCAPE)
         running_ = false;
 }

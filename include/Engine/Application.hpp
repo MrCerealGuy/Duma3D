@@ -18,6 +18,7 @@ private:
     bool createOpenGLContext();
     void destroyOpenGL();
     void update(float dt);
+    void toggleMovementMode();
     void handleRawInput(HRAWINPUT inputHandle);
     void handleKeyDown(WPARAM key);
     void handleKeyUp(WPARAM key);
@@ -33,8 +34,11 @@ private:
     std::wstring title_;
 
     bool running_ = true;
+    bool gravityMode_ = false;
+    bool jumpRequested_ = false;
+    float verticalVelocity_ = 0.0f;
     bool keys_[256]{};
-    Engine::Graphics::Camera camera_;
+    Engine::Graphics::Camera camera_{{0.0f, 1.7f, 9.0f}};
     Engine::Graphics::Renderer renderer_;
     Engine::Scene::Scene scene_;
 };
