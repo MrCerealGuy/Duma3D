@@ -5,6 +5,7 @@ in vec2 vTexCoord;
 in vec3 vWorldPosition;
 in vec3 vSpecularColor;
 in float vShininess;
+in vec3 vEmissiveColor;
 in vec4 vLightSpacePosition;
 uniform sampler2D uDiffuseTexture;
 uniform sampler2D uShadowMap;
@@ -77,6 +78,6 @@ void main() {
     }
     vec3 textureColor = texture(uDiffuseTexture, vTexCoord).rgb;
     vec3 diffuseColor = uAlbedo * vDiffuseColor * textureColor * diffuseLighting;
-    vec3 toneMappedColor = reinhardToneMap(diffuseColor + specularLighting);
+    vec3 toneMappedColor = reinhardToneMap(diffuseColor + specularLighting + vEmissiveColor);
     FragColor = vec4(linearToSrgb(toneMappedColor), 1.0);
 }

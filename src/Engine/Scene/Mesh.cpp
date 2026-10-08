@@ -29,6 +29,7 @@ namespace
     {
         Engine::Math::Vec3 diffuseColor{1.0f, 1.0f, 1.0f};
         Engine::Math::Vec3 specularColor{0.04f, 0.04f, 0.04f};
+        Engine::Math::Vec3 emissiveColor{0.0f, 0.0f, 0.0f};
         float shininess = 32.0f;
         std::string diffuseTexturePath;
     };
@@ -70,6 +71,9 @@ namespace
         std::uint32_t specularX;
         std::uint32_t specularY;
         std::uint32_t specularZ;
+        std::uint32_t emissiveX;
+        std::uint32_t emissiveY;
+        std::uint32_t emissiveZ;
         std::uint32_t shininess;
         std::size_t smoothingGroup;
 
@@ -95,6 +99,9 @@ namespace
             combine(key.specularX);
             combine(key.specularY);
             combine(key.specularZ);
+            combine(key.emissiveX);
+            combine(key.emissiveY);
+            combine(key.emissiveZ);
             combine(key.shininess);
             combine(key.smoothingGroup);
             return hash;
@@ -129,6 +136,12 @@ namespace
                 Engine::Math::Vec3 color{};
                 if (lineStream >> color.x >> color.y >> color.z)
                     materials[currentMaterial].specularColor = color;
+            }
+            else if (record == "Ke" && !currentMaterial.empty())
+            {
+                Engine::Math::Vec3 color{};
+                if (lineStream >> color.x >> color.y >> color.z)
+                    materials[currentMaterial].emissiveColor = color;
             }
             else if (record == "Ns" && !currentMaterial.empty())
             {
@@ -363,6 +376,7 @@ namespace Engine::Scene
         std::vector<SmoothNormalKey> vertexSmoothNormalKeys;
         Math::Vec3 currentDiffuseColor{1.0f, 1.0f, 1.0f};
         Math::Vec3 currentSpecularColor{0.04f, 0.04f, 0.04f};
+        Math::Vec3 currentEmissiveColor{0.0f, 0.0f, 0.0f};
         float currentShininess = 32.0f;
         std::size_t currentSmoothingGroup = 0;
         std::size_t nextSmoothingGroup = 1;
@@ -423,6 +437,9 @@ namespace Engine::Scene
                 currentSpecularColor = material == materials.end()
                     ? Math::Vec3{0.04f, 0.04f, 0.04f}
                     : material->second.specularColor;
+                currentEmissiveColor = material == materials.end()
+                    ? Math::Vec3{0.0f, 0.0f, 0.0f}
+                    : material->second.emissiveColor;
                 currentShininess = material == materials.end()
                     ? 32.0f
                     : material->second.shininess;
@@ -514,6 +531,9 @@ namespace Engine::Scene
                             std::bit_cast<std::uint32_t>(currentSpecularColor.x),
                             std::bit_cast<std::uint32_t>(currentSpecularColor.y),
                             std::bit_cast<std::uint32_t>(currentSpecularColor.z),
+                            std::bit_cast<std::uint32_t>(currentEmissiveColor.x),
+                            std::bit_cast<std::uint32_t>(currentEmissiveColor.y),
+                            std::bit_cast<std::uint32_t>(currentEmissiveColor.z),
                             std::bit_cast<std::uint32_t>(currentShininess),
                             smoothKey.smoothingGroup
                         };
@@ -524,7 +544,7 @@ namespace Engine::Scene
                         {
                             loadedMesh.vertices.push_back({
                                 positions[vertex.positionIndex], normal, currentDiffuseColor, textureCoordinate,
-                                currentSpecularColor, currentShininess
+                                currentSpecularColor, currentShininess, currentEmissiveColor
                             });
                             vertexSmoothNormalKeys.push_back(smoothKey);
                         }

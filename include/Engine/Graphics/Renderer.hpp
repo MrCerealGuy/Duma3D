@@ -6,6 +6,8 @@
 #include <windows.h>
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace Engine::Graphics
@@ -30,6 +32,8 @@ namespace Engine::Graphics
             unsigned int vertexArray = 0;
             unsigned int vertexBuffer = 0;
             unsigned int indexBuffer = 0;
+            unsigned int indexType = 0x1405;
+            std::size_t indexStride = sizeof(std::uint32_t);
             int indexCount = 0;
             Math::Vec3 boundsCenter{0.0f, 0.0f, 0.0f};
             float boundsRadius = 0.0f;

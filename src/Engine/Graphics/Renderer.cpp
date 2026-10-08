@@ -778,12 +778,38 @@ namespace Engine::Graphics
             gpuMesh.indexCount = static_cast<int>(indices->size());
             glGenBuffersPtr(1, &gpuMesh.indexBuffer);
             glBindBufferPtr(GL_ELEMENT_ARRAY_BUFFER, gpuMesh.indexBuffer);
-            glBufferDataPtr(
-                GL_ELEMENT_ARRAY_BUFFER,
-                static_cast<GLsizeiptr>(indices->size() * sizeof(std::uint32_t)),
-                indices->data(),
-                GL_STATIC_DRAW
+            const bool canUse16BitIndices = std::all_of(
+                indices->begin(), indices->end(), [](std::uint32_t index)
+                {
+                    return index <= std::numeric_limits<std::uint16_t>::max();
+                }
             );
+            if (canUse16BitIndices)
+            {
+                std::vector<std::uint16_t> compactIndices;
+                compactIndices.reserve(indices->size());
+                for (const std::uint32_t index : *indices)
+                    compactIndices.push_back(static_cast<std::uint16_t>(index));
+                gpuMesh.indexType = GL_UNSIGNED_SHORT;
+                gpuMesh.indexStride = sizeof(std::uint16_t);
+                glBufferDataPtr(
+                    GL_ELEMENT_ARRAY_BUFFER,
+                    static_cast<GLsizeiptr>(compactIndices.size() * sizeof(std::uint16_t)),
+                    compactIndices.data(),
+                    GL_STATIC_DRAW
+                );
+            }
+            else
+            {
+                gpuMesh.indexType = GL_UNSIGNED_INT;
+                gpuMesh.indexStride = sizeof(std::uint32_t);
+                glBufferDataPtr(
+                    GL_ELEMENT_ARRAY_BUFFER,
+                    static_cast<GLsizeiptr>(indices->size() * sizeof(std::uint32_t)),
+                    indices->data(),
+                    GL_STATIC_DRAW
+                );
+            }
             glVertexAttribPointerPtr(
                 0, 3, GL_FLOAT, GL_FALSE, sizeof(Scene::Vertex),
                 reinterpret_cast<const void*>(offsetof(Scene::Vertex, position))
@@ -814,6 +840,11 @@ namespace Engine::Graphics
                 reinterpret_cast<const void*>(offsetof(Scene::Vertex, shininess))
             );
             glEnableVertexAttribArrayPtr(5);
+            glVertexAttribPointerPtr(
+                6, 3, GL_FLOAT, GL_FALSE, sizeof(Scene::Vertex),
+                reinterpret_cast<const void*>(offsetof(Scene::Vertex, emissiveColor))
+            );
+            glEnableVertexAttribArrayPtr(6);
 
             const auto createSection = [this, &gpuMesh, &textureCache](const Scene::MeshSection& section)
             {
@@ -898,7 +929,7 @@ namespace Engine::Graphics
             const Math::Mat4 lightMvp = Math::multiply(lightSpaceMatrix, model);
             glUniformMatrix4fvPtr(m_shadowMvpLocation, 1, GL_FALSE, lightMvp.m);
             glBindVertexArrayPtr(mesh.vertexArray);
-            glDrawElements(GL_TRIANGLES, mesh.indexCount, GL_UNSIGNED_INT, nullptr);
+            glDrawElements(GL_TRIANGLES, mesh.indexCount, mesh.indexType, nullptr);
         }
         glBindFramebufferPtr(GL_FRAMEBUFFER, 0);
     }
@@ -1063,11 +1094,11 @@ namespace Engine::Graphics
             {
                 glBindTexture(GL_TEXTURE_2D, section.texture);
                 const std::uintptr_t indexOffset =
-                    static_cast<std::uintptr_t>(section.firstIndex) * sizeof(std::uint32_t);
+                    static_cast<std::uintptr_t>(section.firstIndex) * mesh.indexStride;
                 glDrawElements(
                     GL_TRIANGLES,
                     section.indexCount,
-                    GL_UNSIGNED_INT,
+                    mesh.indexType,
                     reinterpret_cast<const void*>(indexOffset)
                 );
             }

@@ -24,6 +24,7 @@ namespace Engine::Scene
         Math::Vec2 textureCoordinate{0.0f, 0.0f};
         Math::Vec3 specularColor{0.04f, 0.04f, 0.04f};
         float shininess = 32.0f;
+        Math::Vec3 emissiveColor{0.0f, 0.0f, 0.0f};
     };
 
     struct Mesh
