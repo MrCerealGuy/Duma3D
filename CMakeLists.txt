@@ -61,6 +61,8 @@ if(WIN32)
         gdi32
         user32
         shell32
+        ole32
+        windowscodecs
     )
 endif()
 

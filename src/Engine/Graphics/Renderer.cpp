@@ -2,6 +2,7 @@
 #include "Engine/Assets/AssetPath.hpp"
 
 #include <gl/GL.h>
+#include <wincodec.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -145,6 +146,37 @@ static PFNGLGENERATEMIPMAPPROC glGenerateMipmapPtr;
 
 namespace
 {
+    template <typename Interface>
+    class ComPtr
+    {
+    public:
+        ~ComPtr()
+        {
+            if (m_value)
+                m_value->Release();
+        }
+
+        Interface** put() { return &m_value; }
+        Interface* operator->() const { return m_value; }
+
+    private:
+        Interface* m_value = nullptr;
+    };
+
+    class ComApartment
+    {
+    public:
+        explicit ComApartment(bool shouldUninitialize) : m_shouldUninitialize(shouldUninitialize) {}
+        ~ComApartment()
+        {
+            if (m_shouldUninitialize)
+                CoUninitialize();
+        }
+
+    private:
+        bool m_shouldUninitialize;
+    };
+
     struct ImageData
     {
         int width = 1;
@@ -305,6 +337,84 @@ namespace
         image.height = height;
         image.rgb = std::move(pixels);
         return true;
+    }
+
+    bool loadWithWindowsImagingComponent(const std::string& path, ImageData& image)
+    {
+        const HRESULT initialization = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        const bool uninitialize = SUCCEEDED(initialization);
+        if (FAILED(initialization) && initialization != RPC_E_CHANGED_MODE)
+            return false;
+        ComApartment apartment(uninitialize);
+
+        ComPtr<IWICImagingFactory> factory;
+        HRESULT result = CoCreateInstance(
+            CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
+            IID_IWICImagingFactory, reinterpret_cast<void**>(factory.put())
+        );
+        if (FAILED(result))
+            return false;
+
+        ComPtr<IWICBitmapDecoder> decoder;
+        result = factory->CreateDecoderFromFilename(
+            Engine::Assets::resolveAssetPath(path).c_str(), nullptr, GENERIC_READ,
+            WICDecodeMetadataCacheOnLoad, decoder.put()
+        );
+        if (FAILED(result))
+            return false;
+
+        ComPtr<IWICBitmapFrameDecode> frame;
+        result = decoder->GetFrame(0, frame.put());
+        if (FAILED(result))
+            return false;
+
+        ComPtr<IWICFormatConverter> converter;
+        result = factory->CreateFormatConverter(converter.put());
+        if (FAILED(result) || FAILED(converter->Initialize(
+                frame.operator->(), GUID_WICPixelFormat24bppRGB, WICBitmapDitherTypeNone,
+                nullptr, 0.0, WICBitmapPaletteTypeCustom)))
+            return false;
+
+        UINT width = 0;
+        UINT height = 0;
+        result = converter->GetSize(&width, &height);
+        if (FAILED(result) || width == 0 || height == 0 ||
+            width > static_cast<UINT>(std::numeric_limits<int>::max()) ||
+            height > static_cast<UINT>(std::numeric_limits<int>::max()))
+            return false;
+
+        const std::size_t rowSize = static_cast<std::size_t>(width) * 3;
+        if (rowSize > std::numeric_limits<UINT>::max() ||
+            static_cast<std::size_t>(height) > std::numeric_limits<std::size_t>::max() / rowSize)
+            return false;
+        const std::size_t pixelDataSize = rowSize * static_cast<std::size_t>(height);
+        if (pixelDataSize > std::numeric_limits<UINT>::max())
+            return false;
+
+        std::vector<unsigned char> pixels(pixelDataSize);
+        result = converter->CopyPixels(
+            nullptr, static_cast<UINT>(rowSize), static_cast<UINT>(pixelDataSize), pixels.data()
+        );
+        if (FAILED(result))
+            return false;
+
+        for (UINT y = 0; y < height / 2; ++y)
+        {
+            const std::size_t top = static_cast<std::size_t>(y) * rowSize;
+            const std::size_t bottom = static_cast<std::size_t>(height - 1 - y) * rowSize;
+            for (std::size_t x = 0; x < rowSize; ++x)
+                std::swap(pixels[top + x], pixels[bottom + x]);
+        }
+
+        image.width = static_cast<int>(width);
+        image.height = static_cast<int>(height);
+        image.rgb = std::move(pixels);
+        return true;
+    }
+
+    bool loadImage(const std::string& path, ImageData& image)
+    {
+        return loadPpm(path, image) || loadWithWindowsImagingComponent(path, image);
     }
 }
 
@@ -613,9 +723,9 @@ namespace Engine::Graphics
             const auto createSection = [&gpuMesh](const Scene::MeshSection& section)
             {
                 ImageData image;
-                if (!section.diffuseTexturePath.empty() && !loadPpm(section.diffuseTexturePath, image))
+                if (!section.diffuseTexturePath.empty() && !loadImage(section.diffuseTexturePath, image))
                 {
-                    OutputDebugStringA(("Could not load PPM texture: " + section.diffuseTexturePath + "\n").c_str());
+                    OutputDebugStringA(("Could not load texture: " + section.diffuseTexturePath + "\n").c_str());
                 }
                 GpuSection gpuSection;
                 gpuSection.firstIndex = static_cast<int>(section.firstIndex);
