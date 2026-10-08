@@ -21,6 +21,7 @@ namespace Engine::Graphics
         {
             unsigned int vertexArray = 0;
             unsigned int vertexBuffer = 0;
+            unsigned int texture = 0;
             int vertexCount = 0;
         };
 
@@ -32,6 +33,7 @@ namespace Engine::Graphics
         unsigned int m_program = 0;
         int m_mvpLocation = -1;
         int m_modelLocation = -1;
+        int m_textureLocation = -1;
         int m_albedoLocation = -1;
         int m_lightDirectionLocation = -1;
         int m_lightColorLocation = -1;

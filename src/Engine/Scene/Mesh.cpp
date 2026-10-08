@@ -13,13 +13,21 @@ namespace
     struct ObjFaceVertex
     {
         std::size_t positionIndex = 0;
+        std::size_t textureCoordinateIndex = 0;
         std::size_t normalIndex = 0;
+        bool hasTextureCoordinate = false;
         bool hasNormal = false;
     };
 
-    using MaterialColors = std::unordered_map<std::string, Engine::Math::Vec3>;
+    struct ObjMaterial
+    {
+        Engine::Math::Vec3 diffuseColor{1.0f, 1.0f, 1.0f};
+        std::string diffuseTexturePath;
+    };
 
-    void loadMaterialLibrary(const std::filesystem::path& path, MaterialColors& materialColors)
+    using Materials = std::unordered_map<std::string, ObjMaterial>;
+
+    void loadMaterialLibrary(const std::filesystem::path& path, Materials& materials)
     {
         std::ifstream file(path);
         if (!file)
@@ -40,7 +48,17 @@ namespace
             {
                 Engine::Math::Vec3 color{};
                 if (lineStream >> color.x >> color.y >> color.z)
-                    materialColors[currentMaterial] = color;
+                    materials[currentMaterial].diffuseColor = color;
+            }
+            else if (record == "map_Kd" && !currentMaterial.empty())
+            {
+                std::string texturePath;
+                std::getline(lineStream >> std::ws, texturePath);
+                if (!texturePath.empty())
+                {
+                    materials[currentMaterial].diffuseTexturePath =
+                        std::filesystem::absolute(path.parent_path() / texturePath).lexically_normal().string();
+                }
             }
         }
     }
@@ -76,6 +94,7 @@ namespace
     bool parseFaceVertex(
         const std::string& token,
         std::size_t positionCount,
+        std::size_t textureCoordinateCount,
         std::size_t normalCount,
         ObjFaceVertex& vertex
     )
@@ -88,6 +107,18 @@ namespace
 
         if (!parseObjIndex(position, positionCount, vertex.positionIndex))
             return false;
+
+        if (firstSlash != std::string::npos)
+        {
+            const std::size_t textureEnd = secondSlash == std::string::npos ? token.size() : secondSlash;
+            const std::string textureCoordinate = token.substr(firstSlash + 1, textureEnd - firstSlash - 1);
+            if (!textureCoordinate.empty())
+            {
+                if (!parseObjIndex(textureCoordinate, textureCoordinateCount, vertex.textureCoordinateIndex))
+                    return false;
+                vertex.hasTextureCoordinate = true;
+            }
+        }
 
         if (secondSlash != std::string::npos && secondSlash + 1 < token.size())
         {
@@ -124,7 +155,7 @@ namespace Engine::Scene
         const auto addFace = [&mesh](Math::Vec3 normal, const Math::Vec3 (&positions)[6])
         {
             for (const Math::Vec3 position : positions)
-                mesh.vertices.push_back({position, normal, {1.0f, 1.0f, 1.0f}});
+                mesh.vertices.push_back({position, normal, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}});
         };
 
         const Math::Vec3 back[] = {
@@ -175,9 +206,10 @@ namespace Engine::Scene
         }
 
         std::vector<Math::Vec3> positions;
+        std::vector<Math::Vec2> textureCoordinates;
         std::vector<Math::Vec3> normals;
         Mesh loadedMesh;
-        MaterialColors materialColors;
+        Materials materials;
         Math::Vec3 currentDiffuseColor{1.0f, 1.0f, 1.0f};
         const std::filesystem::path objPath(path);
         std::string line;
@@ -209,20 +241,40 @@ namespace Engine::Scene
                 }
                 normals.push_back(Math::normalize(normal));
             }
+            else if (record == "vt")
+            {
+                Math::Vec2 textureCoordinate{};
+                if (!(lineStream >> textureCoordinate.x >> textureCoordinate.y))
+                {
+                    error = "Invalid texture coordinate at " + path + ":" + std::to_string(lineNumber);
+                    return false;
+                }
+                textureCoordinates.push_back(textureCoordinate);
+            }
             else if (record == "mtllib")
             {
                 std::string libraryName;
                 while (lineStream >> libraryName)
-                    loadMaterialLibrary(objPath.parent_path() / libraryName, materialColors);
+                    loadMaterialLibrary(objPath.parent_path() / libraryName, materials);
             }
             else if (record == "usemtl")
             {
                 std::string materialName;
                 lineStream >> materialName;
-                const auto material = materialColors.find(materialName);
-                currentDiffuseColor = material == materialColors.end()
+                const auto material = materials.find(materialName);
+                currentDiffuseColor = material == materials.end()
                     ? Math::Vec3{1.0f, 1.0f, 1.0f}
-                    : material->second;
+                    : material->second.diffuseColor;
+                if (material != materials.end() && !material->second.diffuseTexturePath.empty())
+                {
+                    const std::string& texturePath = material->second.diffuseTexturePath;
+                    if (!loadedMesh.diffuseTexturePath.empty() && loadedMesh.diffuseTexturePath != texturePath)
+                    {
+                        error = "Multiple diffuse textures per OBJ are not supported: " + path;
+                        return false;
+                    }
+                    loadedMesh.diffuseTexturePath = texturePath;
+                }
             }
             else if (record == "f")
             {
@@ -234,7 +286,7 @@ namespace Engine::Scene
                         break;
 
                     ObjFaceVertex vertex;
-                    if (!parseFaceVertex(token, positions.size(), normals.size(), vertex))
+                    if (!parseFaceVertex(token, positions.size(), textureCoordinates.size(), normals.size(), vertex))
                     {
                         error = "Invalid face index at " + path + ":" + std::to_string(lineNumber);
                         return false;
@@ -260,7 +312,12 @@ namespace Engine::Scene
                         const Math::Vec3 normal = vertex.hasNormal
                             ? normals[vertex.normalIndex]
                             : triangleNormal;
-                        loadedMesh.vertices.push_back({positions[vertex.positionIndex], normal, currentDiffuseColor});
+                        const Math::Vec2 textureCoordinate = vertex.hasTextureCoordinate
+                            ? textureCoordinates[vertex.textureCoordinateIndex]
+                            : Math::Vec2{0.0f, 0.0f};
+                        loadedMesh.vertices.push_back({
+                            positions[vertex.positionIndex], normal, currentDiffuseColor, textureCoordinate
+                        });
                     }
                 }
             }

@@ -3,9 +3,13 @@
 #include <gl/GL.h>
 
 #include <cstddef>
+#include <cctype>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 #ifndef GL_ARRAY_BUFFER
 #define GL_ARRAY_BUFFER 0x8892
@@ -54,6 +58,7 @@ using PFNGLDELETEPROGRAMPROC = void (APIENTRY *)(unsigned int);
 using PFNGLGETUNIFORMLOCATIONPROC = int (APIENTRY *)(unsigned int, const char*);
 using PFNGLUNIFORMMATRIX4FVPROC = void (APIENTRY *)(int, int, unsigned char, const float*);
 using PFNGLUNIFORM3FPROC = void (APIENTRY *)(int, float, float, float);
+using PFNGLUNIFORM1IPROC = void (APIENTRY *)(int, int);
 using PFNGLENABLEVERTEXATTRIBARRAYPROC = void (APIENTRY *)(unsigned int);
 using PFNGLVERTEXATTRIBPOINTERPROC = void (APIENTRY *)(unsigned int, int, unsigned int, unsigned char, int, const void*);
 using PFNGLDELETEBUFFERSPROC = void (APIENTRY *)(int, const unsigned int*);
@@ -80,12 +85,20 @@ static PFNGLDELETEPROGRAMPROC glDeleteProgramPtr;
 static PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocationPtr;
 static PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fvPtr;
 static PFNGLUNIFORM3FPROC glUniform3fPtr;
+static PFNGLUNIFORM1IPROC glUniform1iPtr;
 static PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArrayPtr;
 static PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointerPtr;
 static PFNGLDELETEBUFFERSPROC glDeleteBuffersPtr;
 
 namespace
 {
+    struct ImageData
+    {
+        int width = 1;
+        int height = 1;
+        std::vector<unsigned char> rgb{255, 255, 255};
+    };
+
     void* getGLProc(const char* name)
     {
         void* proc = reinterpret_cast<void*>(wglGetProcAddress(name));
@@ -114,6 +127,131 @@ namespace
         std::ostringstream stream;
         stream << file.rdbuf();
         return stream.str();
+    }
+
+    bool readPpmToken(std::istream& stream, std::string& token)
+    {
+        token.clear();
+        while (stream)
+        {
+            const int next = stream.peek();
+            if (next == '#')
+            {
+                stream.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            }
+            else if (next != EOF && std::isspace(static_cast<unsigned char>(next)))
+            {
+                const char whitespace = static_cast<char>(stream.get());
+                if (whitespace == '\r' && stream.peek() == '\n')
+                    stream.get();
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        while (stream)
+        {
+            const int next = stream.peek();
+            if (next == EOF || next == '#' || std::isspace(static_cast<unsigned char>(next)))
+                break;
+            token.push_back(static_cast<char>(stream.get()));
+        }
+        if (token.empty())
+            return false;
+
+        if (stream.peek() != EOF && std::isspace(static_cast<unsigned char>(stream.peek())))
+        {
+            const char whitespace = static_cast<char>(stream.get());
+            if (whitespace == '\r' && stream.peek() == '\n')
+                stream.get();
+        }
+        return true;
+    }
+
+    bool loadPpm(const std::string& path, ImageData& image)
+    {
+        std::ifstream file(path, std::ios::binary);
+        std::string token;
+        if (!file || !readPpmToken(file, token) || (token != "P3" && token != "P6"))
+            return false;
+        const bool binary = token == "P6";
+
+        const auto readPositiveInteger = [&file](int& value)
+        {
+            std::string integer;
+            if (!readPpmToken(file, integer))
+                return false;
+            try
+            {
+                std::size_t parsed = 0;
+                value = std::stoi(integer, &parsed);
+                return parsed == integer.size() && value > 0;
+            }
+            catch (...)
+            {
+                return false;
+            }
+        };
+
+        int width = 0;
+        int height = 0;
+        int maxValue = 0;
+        if (!readPositiveInteger(width) || !readPositiveInteger(height) ||
+            !readPositiveInteger(maxValue) || maxValue > 255)
+            return false;
+
+        const std::size_t pixelCount = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+        if (pixelCount > std::numeric_limits<std::size_t>::max() / 3)
+            return false;
+        std::vector<unsigned char> pixels(pixelCount * 3);
+
+        if (binary)
+        {
+            file.read(reinterpret_cast<char*>(pixels.data()), static_cast<std::streamsize>(pixels.size()));
+            if (file.gcount() != static_cast<std::streamsize>(pixels.size()))
+                return false;
+            if (maxValue != 255)
+            {
+                for (unsigned char& channel : pixels)
+                    channel = static_cast<unsigned char>(static_cast<int>(channel) * 255 / maxValue);
+            }
+        }
+        else
+        {
+            for (unsigned char& channel : pixels)
+            {
+                if (!readPpmToken(file, token))
+                    return false;
+                try
+                {
+                    std::size_t parsed = 0;
+                    const int value = std::stoi(token, &parsed);
+                    if (parsed != token.size() || value < 0 || value > maxValue)
+                        return false;
+                    channel = static_cast<unsigned char>(value * 255 / maxValue);
+                }
+                catch (...)
+                {
+                    return false;
+                }
+            }
+        }
+
+        const std::size_t rowSize = static_cast<std::size_t>(width) * 3;
+        for (int y = 0; y < height / 2; ++y)
+        {
+            const std::size_t top = static_cast<std::size_t>(y) * rowSize;
+            const std::size_t bottom = static_cast<std::size_t>(height - 1 - y) * rowSize;
+            for (std::size_t x = 0; x < rowSize; ++x)
+                std::swap(pixels[top + x], pixels[bottom + x]);
+        }
+
+        image.width = width;
+        image.height = height;
+        image.rgb = std::move(pixels);
+        return true;
     }
 }
 
@@ -145,6 +283,7 @@ namespace Engine::Graphics
         LOAD(glGetUniformLocationPtr, "glGetUniformLocation");
         LOAD(glUniformMatrix4fvPtr, "glUniformMatrix4fv");
         LOAD(glUniform3fPtr, "glUniform3f");
+        LOAD(glUniform1iPtr, "glUniform1i");
         LOAD(glEnableVertexAttribArrayPtr, "glEnableVertexAttribArray");
         LOAD(glVertexAttribPointerPtr, "glVertexAttribPointer");
 #undef LOAD
@@ -210,11 +349,12 @@ namespace Engine::Graphics
 
         m_mvpLocation = glGetUniformLocationPtr(m_program, "uMVP");
         m_modelLocation = glGetUniformLocationPtr(m_program, "uModel");
+        m_textureLocation = glGetUniformLocationPtr(m_program, "uDiffuseTexture");
         m_albedoLocation = glGetUniformLocationPtr(m_program, "uAlbedo");
         m_lightDirectionLocation = glGetUniformLocationPtr(m_program, "uLightDirection");
         m_lightColorLocation = glGetUniformLocationPtr(m_program, "uLightColor");
         m_ambientColorLocation = glGetUniformLocationPtr(m_program, "uAmbientColor");
-        return m_mvpLocation >= 0 && m_modelLocation >= 0 && m_albedoLocation >= 0 &&
+        return m_mvpLocation >= 0 && m_modelLocation >= 0 && m_textureLocation >= 0 && m_albedoLocation >= 0 &&
             m_lightDirectionLocation >= 0 && m_lightColorLocation >= 0 &&
             m_ambientColorLocation >= 0;
     }
@@ -255,6 +395,29 @@ namespace Engine::Graphics
                 reinterpret_cast<const void*>(offsetof(Scene::Vertex, diffuseColor))
             );
             glEnableVertexAttribArrayPtr(2);
+            glVertexAttribPointerPtr(
+                3, 2, GL_FLOAT, GL_FALSE, sizeof(Scene::Vertex),
+                reinterpret_cast<const void*>(offsetof(Scene::Vertex, textureCoordinate))
+            );
+            glEnableVertexAttribArrayPtr(3);
+
+            ImageData image;
+            if (!mesh.diffuseTexturePath.empty() && !loadPpm(mesh.diffuseTexturePath, image))
+            {
+                OutputDebugStringA(("Could not load PPM texture: " + mesh.diffuseTexturePath + "\n").c_str());
+            }
+            glGenTextures(1, &gpuMesh.texture);
+            glBindTexture(GL_TEXTURE_2D, gpuMesh.texture);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            glTexImage2D(
+                GL_TEXTURE_2D, 0, GL_RGB, image.width, image.height, 0,
+                GL_RGB, GL_UNSIGNED_BYTE, image.rgb.data()
+            );
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
             m_meshes.push_back(gpuMesh);
         }
 
@@ -281,6 +444,7 @@ namespace Engine::Graphics
         );
 
         glUseProgramPtr(m_program);
+        glUniform1iPtr(m_textureLocation, 0);
         const Scene::DirectionalLight& light = scene.directionalLight();
         glUniform3fPtr(m_lightDirectionLocation, light.direction.x, light.direction.y, light.direction.z);
         glUniform3fPtr(m_lightColorLocation, light.color.x, light.color.y, light.color.z);
@@ -302,6 +466,7 @@ namespace Engine::Graphics
             glUniformMatrix4fvPtr(m_modelLocation, 1, GL_FALSE, model.m);
             glUniform3fPtr(m_albedoLocation, material.baseColor.x, material.baseColor.y, material.baseColor.z);
             glBindVertexArrayPtr(mesh.vertexArray);
+            glBindTexture(GL_TEXTURE_2D, mesh.texture);
             glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
         }
 
@@ -326,6 +491,11 @@ namespace Engine::Graphics
                     glDeleteVertexArraysPtr(1, &mesh.vertexArray);
             }
         }
+        for (const GpuMesh& mesh : m_meshes)
+        {
+            if (mesh.texture)
+                glDeleteTextures(1, &mesh.texture);
+        }
         m_meshes.clear();
     }
 
@@ -337,6 +507,7 @@ namespace Engine::Graphics
         m_program = 0;
         m_mvpLocation = -1;
         m_modelLocation = -1;
+        m_textureLocation = -1;
         m_albedoLocation = -1;
         m_lightDirectionLocation = -1;
         m_lightColorLocation = -1;
