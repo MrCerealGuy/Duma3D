@@ -25,6 +25,11 @@ namespace Engine::Graphics
         m_position.z += right.z * amount;
     }
 
+    void Camera::moveUp(float amount)
+    {
+        m_position.y += amount;
+    }
+
     void Camera::rotate(float yawDelta, float pitchDelta)
     {
         m_yaw += yawDelta;

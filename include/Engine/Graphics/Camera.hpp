@@ -11,6 +11,7 @@ namespace Engine::Graphics
 
         void moveForward(float amount);
         void moveRight(float amount);
+        void moveUp(float amount);
         void rotate(float yawDelta, float pitchDelta);
 
         Math::Mat4 viewMatrix() const;

@@ -152,11 +152,14 @@ void Application::destroyOpenGL()
 
 void Application::update(float dt)
 {
-    const float speed = 3.0f * dt;
+    const float baseSpeed = keys_[VK_SHIFT] ? 9.0f : 3.0f;
+    const float speed = baseSpeed * dt;
     if (keys_['W']) camera_.moveForward(speed);
     if (keys_['S']) camera_.moveForward(-speed);
     if (keys_['D']) camera_.moveRight(speed);
     if (keys_['A']) camera_.moveRight(-speed);
+    if (keys_[VK_SPACE]) camera_.moveUp(speed);
+    if (keys_[VK_CONTROL]) camera_.moveUp(-speed);
 }
 
 void Application::handleRawInput(HRAWINPUT inputHandle)
