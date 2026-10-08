@@ -3,6 +3,7 @@
 
 #include <fstream>
 #include <bit>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <limits>
@@ -238,6 +239,53 @@ namespace Engine::Scene
             { 0.5f, 0.5f, 0.5f}, {-0.5f, 0.5f, 0.5f}, {-0.5f, 0.5f,-0.5f}
         };
         addFace({0.0f, 1.0f, 0.0f}, top);
+        mesh.sections.push_back({0, mesh.indices.size(), {}});
+        return mesh;
+    }
+
+    Mesh Mesh::sphere()
+    {
+        constexpr int longitudeSegments = 24;
+        constexpr int latitudeSegments = 16;
+        constexpr float pi = 3.14159265359f;
+        constexpr int rowLength = longitudeSegments + 1;
+
+        Mesh mesh;
+        mesh.vertices.reserve((latitudeSegments + 1) * rowLength);
+        mesh.indices.reserve(latitudeSegments * longitudeSegments * 6);
+        for (int latitude = 0; latitude <= latitudeSegments; ++latitude)
+        {
+            const float v = static_cast<float>(latitude) / latitudeSegments;
+            const float phi = v * pi;
+            const float ringRadius = std::sin(phi);
+            const float y = std::cos(phi);
+            for (int longitude = 0; longitude <= longitudeSegments; ++longitude)
+            {
+                const float u = static_cast<float>(longitude) / longitudeSegments;
+                const float theta = u * 2.0f * pi;
+                const Math::Vec3 normal{
+                    ringRadius * std::cos(theta),
+                    y,
+                    ringRadius * std::sin(theta)
+                };
+                mesh.vertices.push_back({normal, normal, {1.0f, 1.0f, 1.0f}, {u, 1.0f - v}});
+            }
+        }
+
+        for (int latitude = 0; latitude < latitudeSegments; ++latitude)
+        {
+            for (int longitude = 0; longitude < longitudeSegments; ++longitude)
+            {
+                const std::uint32_t topLeft = static_cast<std::uint32_t>(latitude * rowLength + longitude);
+                const std::uint32_t bottomLeft = topLeft + rowLength;
+                const std::uint32_t topRight = topLeft + 1;
+                const std::uint32_t bottomRight = bottomLeft + 1;
+                if (latitude > 0)
+                    mesh.indices.insert(mesh.indices.end(), {topLeft, topRight, bottomLeft});
+                if (latitude + 1 < latitudeSegments)
+                    mesh.indices.insert(mesh.indices.end(), {topRight, bottomRight, bottomLeft});
+            }
+        }
         mesh.sections.push_back({0, mesh.indices.size(), {}});
         return mesh;
     }

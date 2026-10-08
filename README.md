@@ -1,6 +1,6 @@
 # Duma3D
 
-Duma3D ist ein experimenteller 3D-Engine-Starter für Windows. Der aktuelle Stand öffnet ein Win32-Fenster, erstellt über WGL einen OpenGL-3.3-Core-Kontext und rendert eine einfache Szene mit Würfeln und einem texturierten OBJ-Modell aus frei beweglicher Kamera.
+Duma3D ist ein experimenteller 3D-Engine-Starter für Windows. Der aktuelle Stand öffnet ein Win32-Fenster, erstellt über WGL einen OpenGL-3.3-Core-Kontext und rendert eine einfache Szene mit prozeduralen Würfeln und UV-Kugel sowie einem texturierten OBJ-Modell aus frei beweglicher Kamera.
 
 ## Technischer Pfad
 
@@ -53,7 +53,7 @@ Danach `build\Duma3D.exe` ausführen. Die Assets werden in `build\assets` neben 
 
 ## Aktueller Umfang
 
-Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. Meshes werden mit wiederverwendeten Vertices und 32-Bit-Indizes übertragen; OBJ-Vertices werden anhand ihrer Attribute dedupliziert. Eine Szene kann Meshes, farbige Materialien, eine gerichtete Lichtquelle und platzierte Instanzen verwalten. Instanzen unterstützen Position, Euler-Rotation in Grad und Skalierung. Der Renderer berechnet diffuse Beleuchtung mit Umgebungslicht und transformiert Normalen für die Beleuchtung. Der Wavefront-Importer liest Positionen, Normalen, UV-Texturkoordinaten und Flächen, trianguliert Polygonflächen und erzeugt fehlende Normalen. MTL-Diffusfarben (`Kd`) und einfache `map_Kd`-Pfade werden pro Materialabschnitt übernommen; der Renderer zeichnet diese Abschnitte mit eigener Textur. Der eingebaute Texturloader unterstützt P3- und P6-PPM-Bilder; andere Bildformate und erweiterte MTL-Map-Optionen werden noch nicht unterstützt. Die Win32-Plattforminitialisierung bleibt in `src/Engine/Application.cpp`.
+Der Renderer, die Meshdaten und die Szenenobjekte liegen in eigenen Engine-Modulen. Meshes werden mit wiederverwendeten Vertices und 32-Bit-Indizes übertragen; OBJ-Vertices werden anhand ihrer Attribute dedupliziert. Als prozedurale Grundmeshes gibt es einen Würfel und eine UV-Kugel mit glatten Normalen. Eine Szene kann Meshes, farbige Materialien, eine gerichtete Lichtquelle und platzierte Instanzen verwalten. Instanzen unterstützen Position, Euler-Rotation in Grad und Skalierung. Der Renderer berechnet diffuse Beleuchtung mit Umgebungslicht und transformiert Normalen für die Beleuchtung. Der Wavefront-Importer liest Positionen, Normalen, UV-Texturkoordinaten und Flächen, trianguliert Polygonflächen und erzeugt fehlende Normalen. MTL-Diffusfarben (`Kd`) und einfache `map_Kd`-Pfade werden pro Materialabschnitt übernommen; der Renderer zeichnet diese Abschnitte mit eigener Textur. Der eingebaute Texturloader unterstützt P3- und P6-PPM-Bilder; andere Bildformate und erweiterte MTL-Map-Optionen werden noch nicht unterstützt. Die Win32-Plattforminitialisierung bleibt in `src/Engine/Application.cpp`.
 
 ## Struktur
 

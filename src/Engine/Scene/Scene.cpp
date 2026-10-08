@@ -35,6 +35,7 @@ namespace Engine::Scene
     {
         Scene scene;
         const std::size_t cube = scene.addMesh(Mesh::cube());
+        const std::size_t sphere = scene.addMesh(Mesh::sphere());
         Mesh pyramid;
         std::string loadError;
         const bool loadedPyramid = Mesh::loadObj("assets/models/pyramid.obj", pyramid, loadError);
@@ -46,7 +47,7 @@ namespace Engine::Scene
         scene.addObject(cube, blue, {{-1.25f, 0.0f, 0.0f}, {18.0f, 25.0f, -8.0f}, {0.9f, 0.9f, 0.9f}});
         scene.addObject(importedMesh, loadedPyramid ? white : fallbackOrange,
             {{0.0f, 0.0f, 0.0f}, {8.0f, -18.0f, 12.0f}, {1.1f, 1.1f, 1.1f}});
-        scene.addObject(cube, green, {{1.25f, 0.0f, 0.0f}, {-15.0f, -28.0f, 6.0f}, {0.85f, 0.85f, 0.85f}});
+        scene.addObject(sphere, green, {{1.25f, 0.0f, 0.0f}, {-15.0f, -28.0f, 6.0f}, {0.85f, 0.85f, 0.85f}});
         return scene;
     }
 }

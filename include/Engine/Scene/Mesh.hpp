@@ -31,6 +31,7 @@ namespace Engine::Scene
         std::vector<MeshSection> sections;
 
         static Mesh cube();
+        static Mesh sphere();
         static bool loadObj(const std::string& path, Mesh& mesh, std::string& error);
     };
 }
