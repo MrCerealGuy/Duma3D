@@ -16,6 +16,7 @@ namespace Engine::Graphics
     {
     public:
         bool initialize(HDC deviceContext, const Scene::Scene& scene);
+        bool updateScene(const Scene::Scene& scene);
         void render(const Scene::Scene& scene, const Camera& camera, int width, int height);
         void shutdown();
 
@@ -46,6 +47,7 @@ namespace Engine::Graphics
         bool createShaderProgram();
         bool createShadowShaderProgram();
         bool createShadowMap();
+        bool uploadSceneMeshes(const Scene::Scene& scene);
         void renderShadowMap(const Scene::Scene& scene, const Math::Mat4& lightSpaceMatrix);
         void destroyMeshes();
 

@@ -18,7 +18,7 @@ namespace Duma3D::Demos::Demo_1
 
     namespace
     {
-        constexpr float terrainHalfSize = 22.0f;
+        constexpr float terrainHalfSize = worldChunkSize * 0.5f;
         constexpr int terrainSegments = 128;
         constexpr float houseCentersX[] = {-7.0f, 7.0f};
         constexpr float houseCenterZ = -4.0f;
@@ -39,13 +39,7 @@ namespace Duma3D::Demos::Demo_1
         class TerrainField
         {
         public:
-            TerrainField(std::mt19937& generator, float cellSize)
-                : m_cellSize(cellSize), m_values(18 * 18)
-            {
-                std::uniform_real_distribution<float> value(-1.0f, 1.0f);
-                for (float& sample : m_values)
-                    sample = value(generator);
-            }
+            TerrainField(std::uint32_t seed, float cellSize) : m_seed(seed), m_cellSize(cellSize) {}
 
             float sample(float x, float z) const
             {
@@ -66,14 +60,19 @@ namespace Duma3D::Demos::Demo_1
 
             float valueAt(int x, int z) const
             {
-                constexpr int side = 18;
-                x = ((x % side) + side) % side;
-                z = ((z % side) + side) % side;
-                return m_values[static_cast<std::size_t>(z * side + x)];
+                std::uint32_t hash = m_seed;
+                hash ^= static_cast<std::uint32_t>(x) * 0x8da6b343u;
+                hash ^= static_cast<std::uint32_t>(z) * 0xd8163841u;
+                hash ^= hash >> 16;
+                hash *= 0x7feb352du;
+                hash ^= hash >> 15;
+                hash *= 0x846ca68bu;
+                hash ^= hash >> 16;
+                return static_cast<float>(hash) / 2147483647.5f - 1.0f;
             }
 
+            std::uint32_t m_seed;
             float m_cellSize;
-            std::vector<float> m_values;
         };
 
         struct GroundPatch
@@ -83,7 +82,13 @@ namespace Duma3D::Demos::Demo_1
             int surface;
         };
 
-        float terrainHeight(float x, float z)
+        float terrainHeight(
+            float x,
+            float z,
+            float originX = 0.0f,
+            float originZ = 0.0f,
+            std::uint32_t seed = 0
+        )
         {
             float flatten = 1.0f;
             for (const float houseX : houseCentersX)
@@ -95,17 +100,20 @@ namespace Duma3D::Demos::Demo_1
                 flatten = std::min(flatten, t * t * (3.0f - 2.0f * t));
             }
 
-            const float hills = 0.8f * std::sin(x * 0.18f) * std::cos(z * 0.15f) +
-                0.35f * std::sin((x + z) * 0.31f);
+            const float worldX = x + originX;
+            const float worldZ = z + originZ;
+            const TerrainField hillsNoise(seed ^ 0x6d2b79f5u, 18.0f);
+            const float hills = 0.8f * std::sin(worldX * 0.18f) * std::cos(worldZ * 0.15f) +
+                0.35f * std::sin((worldX + worldZ) * 0.31f) + 0.75f * hillsNoise.sample(worldX, worldZ);
             return hills * flatten;
         }
 
-        Mesh makeLandscape(std::mt19937& generator)
+        Mesh makeLandscape(std::mt19937& generator, float originX, float originZ, std::uint32_t seed)
         {
-            const TerrainField broadNoise(generator, 8.0f);
-            const TerrainField mediumNoise(generator, 3.0f);
-            const TerrainField detailNoise(generator, 1.1f);
-            std::uniform_real_distribution<float> patchPosition(-19.0f, 19.0f);
+            const TerrainField broadNoise(seed ^ 0xa511e9b3u, 16.0f);
+            const TerrainField mediumNoise(seed ^ 0x63d83595u, 6.0f);
+            const TerrainField detailNoise(seed ^ 0xb8d5a4f1u, 2.2f);
+            std::uniform_real_distribution<float> patchPosition(-terrainHalfSize + 7.0f, terrainHalfSize - 7.0f);
             std::uniform_real_distribution<float> soilRadius(1.8f, 4.2f);
             std::uniform_real_distribution<float> rockRadius(1.2f, 3.2f);
             std::uniform_real_distribution<float> pavingRadius(1.4f, 2.8f);
@@ -131,20 +139,21 @@ namespace Duma3D::Demos::Demo_1
                 {
                     const float u = static_cast<float>(xIndex) / terrainSegments;
                     const float x = -terrainHalfSize + 2.0f * terrainHalfSize * u;
-                    const float y = terrainHeight(x, z);
+                    const float y = terrainHeight(x, z, originX, originZ, seed);
                     constexpr float sampleOffset = 0.05f;
-                    const float slopeX = (terrainHeight(x + sampleOffset, z) -
-                        terrainHeight(x - sampleOffset, z)) / (2.0f * sampleOffset);
-                    const float slopeZ = (terrainHeight(x, z + sampleOffset) -
-                        terrainHeight(x, z - sampleOffset)) / (2.0f * sampleOffset);
+                    const float slopeX = (terrainHeight(x + sampleOffset, z, originX, originZ, seed) -
+                        terrainHeight(x - sampleOffset, z, originX, originZ, seed)) / (2.0f * sampleOffset);
+                    const float slopeZ = (terrainHeight(x, z + sampleOffset, originX, originZ, seed) -
+                        terrainHeight(x, z - sampleOffset, originX, originZ, seed)) / (2.0f * sampleOffset);
                     const Math::Vec3 normal = Math::normalize({-slopeX, 1.0f, -slopeZ});
                     const float variation = std::clamp(
-                        0.88f + broadNoise.sample(x, z) * 0.07f + detailNoise.sample(x, z) * 0.04f + y * 0.05f,
+                        0.88f + broadNoise.sample(x + originX, z + originZ) * 0.07f +
+                            detailNoise.sample(x + originX, z + originZ) * 0.04f + y * 0.05f,
                         0.72f, 1.0f);
                     mesh.vertices.push_back({
                         {x, y, z}, normal,
                         {variation, variation, variation},
-                        {u * 44.0f, v * 44.0f}
+                        {u * worldChunkSize, v * worldChunkSize}
                     });
                 }
             }
@@ -161,11 +170,15 @@ namespace Duma3D::Demos::Demo_1
                         (2.0f * terrainHalfSize / terrainSegments);
                     const float z = -terrainHalfSize + (zIndex + 0.5f) *
                         (2.0f * terrainHalfSize / terrainSegments);
-                    const float broad = broadNoise.sample(x, z);
-                    const float medium = mediumNoise.sample(x, z);
-                    const float detail = detailNoise.sample(x, z);
-                    const float slopeX = (terrainHeight(x + 0.2f, z) - terrainHeight(x - 0.2f, z)) / 0.4f;
-                    const float slopeZ = (terrainHeight(x, z + 0.2f) - terrainHeight(x, z - 0.2f)) / 0.4f;
+                    const float worldX = x + originX;
+                    const float worldZ = z + originZ;
+                    const float broad = broadNoise.sample(worldX, worldZ);
+                    const float medium = mediumNoise.sample(worldX, worldZ);
+                    const float detail = detailNoise.sample(worldX, worldZ);
+                    const float slopeX = (terrainHeight(x + 0.2f, z, originX, originZ, seed) -
+                        terrainHeight(x - 0.2f, z, originX, originZ, seed)) / 0.4f;
+                    const float slopeZ = (terrainHeight(x, z + 0.2f, originX, originZ, seed) -
+                        terrainHeight(x, z - 0.2f, originX, originZ, seed)) / 0.4f;
                     int surface = broad + medium * 0.35f + detail * 0.18f > 0.30f ? 1 : 0;
                     if (broad < -0.55f && std::sqrt(slopeX * slopeX + slopeZ * slopeZ) > 0.12f)
                         surface = 2;
@@ -369,6 +382,17 @@ namespace Duma3D::Demos::Demo_1
             return true;
         }
 
+        std::uint32_t makeChunkSeed(std::uint32_t seed, int chunkX, int chunkZ)
+        {
+            std::uint32_t value = seed ^ (static_cast<std::uint32_t>(chunkX) * 0x9e3779b9u);
+            value ^= static_cast<std::uint32_t>(chunkZ) * 0x85ebca6bu;
+            value ^= value >> 16;
+            value *= 0x7feb352du;
+            value ^= value >> 15;
+            value *= 0x846ca68bu;
+            return value ^ (value >> 16);
+        }
+
         void addBox(
             Scene& scene,
             std::size_t cubeMesh,
@@ -551,22 +575,32 @@ namespace Duma3D::Demos::Demo_1
         }
     }
 
-    float sampleDemoTerrainHeight(float x, float z)
+    float sampleDemoTerrainHeight(float x, float z, std::uint32_t seed)
     {
         constexpr float houseFloorTop = 0.16f;
+        const int chunkX = static_cast<int>(std::floor((x + terrainHalfSize) / worldChunkSize));
+        const int chunkZ = static_cast<int>(std::floor((z + terrainHalfSize) / worldChunkSize));
+        const float originX = static_cast<float>(chunkX) * worldChunkSize;
+        const float originZ = static_cast<float>(chunkZ) * worldChunkSize;
+        const float localX = x - originX;
+        const float localZ = z - originZ;
         for (const float houseX : houseCentersX)
         {
-            if (std::abs(x - houseX) < 3.0f && std::abs(z - houseCenterZ) < 3.0f)
+            if (std::abs(localX - houseX) < 3.0f && std::abs(localZ - houseCenterZ) < 3.0f)
                 return houseFloorTop;
         }
-        return terrainHeight(x, z);
+        return terrainHeight(localX, localZ, originX, originZ, seed);
     }
 
-    Scene makeDemoScene()
+    namespace
+    {
+    Scene makeDemoChunk(int chunkX, int chunkZ, std::uint32_t worldSeed, bool decorate)
     {
         Scene scene;
-        std::mt19937 generator(std::random_device{}());
-        const std::size_t ground = scene.addMesh(makeLandscape(generator));
+        const float originX = static_cast<float>(chunkX) * worldChunkSize;
+        const float originZ = static_cast<float>(chunkZ) * worldChunkSize;
+        std::mt19937 generator(makeChunkSeed(worldSeed, chunkX, chunkZ));
+        const std::size_t ground = scene.addMesh(makeLandscape(generator, originX, originZ, worldSeed));
         const std::size_t cube = scene.addMesh(Mesh::cube());
         const std::size_t sphere = scene.addMesh(Mesh::sphere());
         const std::size_t groundMaterial = scene.addMaterial({{0.92f, 0.92f, 0.92f}, {}});
@@ -601,6 +635,8 @@ namespace Duma3D::Demos::Demo_1
         }};
 
         scene.addObject(ground, groundMaterial);
+        if (!decorate)
+            return scene;
         std::array<Math::Vec3, 6> shuffledRoomLights = roomLightPalette;
         std::shuffle(shuffledRoomLights.begin(), shuffledRoomLights.end(), generator);
         std::uniform_int_distribution<std::size_t> styleChoice(0, wallMaterials.size() - 1);
@@ -657,12 +693,12 @@ namespace Duma3D::Demos::Demo_1
             {
                 const float z = frontZ + 0.55f + static_cast<float>(step) * 0.85f;
                 addBox(scene, cube, path,
-                    {entryX, sampleDemoTerrainHeight(entryX, z) + 0.06f, z},
+                    {entryX, sampleDemoTerrainHeight(entryX + originX, z + originZ, worldSeed) + 0.06f, z},
                     {0.9f, 0.12f, 0.68f});
             }
         }
 
-        std::uniform_real_distribution<float> landscapePosition(-19.0f, 19.0f);
+        std::uniform_real_distribution<float> landscapePosition(-terrainHalfSize + 3.0f, terrainHalfSize - 3.0f);
         std::uniform_real_distribution<float> treeScale(0.8f, 1.35f);
         std::uniform_int_distribution<int> treeCountChoice(10, 17);
         std::uniform_int_distribution<std::size_t> foliageChoice(0, foliageMaterials.size() - 1);
@@ -693,7 +729,7 @@ namespace Duma3D::Demos::Demo_1
         for (const Math::Vec2 location : treeLocations)
         {
             const float scale = treeScale(generator);
-            const float groundHeight = terrainHeight(location.x, location.y);
+            const float groundHeight = terrainHeight(location.x, location.y, originX, originZ, worldSeed);
             addBox(scene, cube, bark,
                 {location.x, groundHeight + 0.8f * scale, location.y},
                 {0.38f * scale, 1.6f * scale, 0.38f * scale});
@@ -715,7 +751,7 @@ namespace Duma3D::Demos::Demo_1
         }};
         std::uniform_real_distribution<float> detailOffset(-0.58f, 0.58f);
         std::uniform_real_distribution<float> detailAngle(0.0f, 6.2831853f);
-        std::uniform_real_distribution<float> detailPosition(-19.5f, 19.5f);
+        std::uniform_real_distribution<float> detailPosition(-terrainHalfSize + 2.5f, terrainHalfSize - 2.5f);
         std::uniform_real_distribution<float> grassScale(0.72f, 1.45f);
         std::uniform_real_distribution<float> rockScale(0.08f, 0.27f);
         std::uniform_real_distribution<float> branchLength(0.4f, 1.05f);
@@ -741,15 +777,15 @@ namespace Duma3D::Demos::Demo_1
             return Math::Vec2{18.5f, 18.5f};
         };
 
-        for (int tuft = 0; tuft < 210; ++tuft)
+        for (int tuft = 0; tuft < 310; ++tuft)
         {
             const Math::Vec2 spot = findClearGroundSpot();
             appendTransformedMesh(grassTufts, grassSources[grassVariant(generator)],
-                {spot.x, terrainHeight(spot.x, spot.y), spot.y},
+                {spot.x, terrainHeight(spot.x, spot.y, originX, originZ, worldSeed), spot.y},
                 {grassScale(generator), grassScale(generator), grassScale(generator)}, detailAngle(generator));
         }
 
-        for (int cluster = 0; cluster < 52; ++cluster)
+        for (int cluster = 0; cluster < 70; ++cluster)
         {
             const Math::Vec2 center = findClearGroundSpot();
             for (int stone = 0, count = rockCount(generator); stone < count; ++stone)
@@ -761,7 +797,7 @@ namespace Duma3D::Demos::Demo_1
                 const float sizeX = rockScale(generator);
                 const float sizeY = rockScale(generator) * 0.62f;
                 const float sizeZ = rockScale(generator);
-                const float y = terrainHeight(x, z) + sizeY * 0.7f;
+                const float y = terrainHeight(x, z, originX, originZ, worldSeed) + sizeY * 0.7f;
                 const float angle = detailAngle(generator);
                 const float tint = std::uniform_real_distribution<float>(0.78f, 1.08f)(generator);
                 appendTransformedMesh(groundDetails, rockSource, {x, y, z},
@@ -769,7 +805,7 @@ namespace Duma3D::Demos::Demo_1
             }
         }
 
-        for (int cluster = 0; cluster < 34; ++cluster)
+        for (int cluster = 0; cluster < 48; ++cluster)
         {
             const Math::Vec2 center = findClearGroundSpot();
             for (int branch = 0, count = branchCount(generator); branch < count; ++branch)
@@ -780,7 +816,7 @@ namespace Duma3D::Demos::Demo_1
                     continue;
                 const float length = branchLength(generator);
                 const float thickness = std::uniform_real_distribution<float>(0.025f, 0.052f)(generator);
-                const float y = terrainHeight(x, z) + thickness * 0.55f;
+                const float y = terrainHeight(x, z, originX, originZ, worldSeed) + thickness * 0.55f;
                 appendTransformedMesh(branchDetails, branchSource, {x, y, z},
                     {length, thickness, thickness * 0.85f}, detailAngle(generator));
                 if (branch == 0 && count > 1)
@@ -794,7 +830,7 @@ namespace Duma3D::Demos::Demo_1
             }
         }
 
-        for (int cluster = 0; cluster < 46; ++cluster)
+        for (int cluster = 0; cluster < 68; ++cluster)
         {
             const Math::Vec2 center = findClearGroundSpot();
             for (int leaf = 0, count = leafCount(generator); leaf < count; ++leaf)
@@ -806,7 +842,7 @@ namespace Duma3D::Demos::Demo_1
                 const float size = leafScale(generator);
                 const Math::Vec3 tint = leafTints[leafColor(generator)];
                 appendTransformedMesh(fallenLeaves, leafSource,
-                    {x, terrainHeight(x, z) + 0.025f, z},
+                    {x, terrainHeight(x, z, originX, originZ, worldSeed) + 0.025f, z},
                     {size, 1.0f, size * std::uniform_real_distribution<float>(0.62f, 1.18f)(generator)},
                     detailAngle(generator), tint);
             }
@@ -825,14 +861,94 @@ namespace Duma3D::Demos::Demo_1
         addGroundDetailMesh(std::move(fallenLeaves), fallenLeaf);
         addGroundDetailMesh(std::move(grassTufts), grassTuftMaterial);
 
-        const float monumentHeight = terrainHeight(0.0f, -15.0f);
-        addBox(scene, cube, path, {0.0f, monumentHeight + 0.25f, -15.0f}, {1.8f, 0.5f, 1.8f});
-        addBox(scene, cube, trim, {0.0f, monumentHeight + 1.2f, -15.0f}, {0.55f, 1.9f, 0.55f});
-        scene.addObject(sphere, path,
-            {{0.0f, monumentHeight + 2.35f, -15.0f}, {0.0f, 0.0f, 0.0f}, {0.75f, 0.75f, 0.75f}});
-        scene.addObject(sphere, green,
-            {{0.0f, terrainHeight(0.0f, 3.0f) + 0.9f, 3.0f}, {-15.0f, -28.0f, 6.0f}, {0.9f, 0.9f, 0.9f}});
+        if (chunkX == 0 && chunkZ == 0)
+        {
+            const float monumentHeight = terrainHeight(0.0f, -15.0f, originX, originZ, worldSeed);
+            addBox(scene, cube, path, {0.0f, monumentHeight + 0.25f, -15.0f}, {1.8f, 0.5f, 1.8f});
+            addBox(scene, cube, trim, {0.0f, monumentHeight + 1.2f, -15.0f}, {0.55f, 1.9f, 0.55f});
+            scene.addObject(sphere, path,
+                {{0.0f, monumentHeight + 2.35f, -15.0f}, {0.0f, 0.0f, 0.0f}, {0.75f, 0.75f, 0.75f}});
+            scene.addObject(sphere, green,
+                {{0.0f, terrainHeight(0.0f, 3.0f, originX, originZ, worldSeed) + 0.9f, 3.0f},
+                    {-15.0f, -28.0f, 6.0f}, {0.9f, 0.9f, 0.9f}});
+        }
         return scene;
+    }
+    }
+
+    Scene makeDemoWorld(int centerChunkX, int centerChunkZ, int radius, std::uint32_t seed)
+    {
+        struct ChunkCoordinate
+        {
+            int x;
+            int z;
+        };
+        std::vector<ChunkCoordinate> chunks;
+        for (int z = centerChunkZ - radius; z <= centerChunkZ + radius; ++z)
+        {
+            for (int x = centerChunkX - radius; x <= centerChunkX + radius; ++x)
+                chunks.push_back({x, z});
+        }
+        std::sort(chunks.begin(), chunks.end(), [centerChunkX, centerChunkZ](ChunkCoordinate a, ChunkCoordinate b)
+        {
+            const int distanceA = (a.x - centerChunkX) * (a.x - centerChunkX) +
+                (a.z - centerChunkZ) * (a.z - centerChunkZ);
+            const int distanceB = (b.x - centerChunkX) * (b.x - centerChunkX) +
+                (b.z - centerChunkZ) * (b.z - centerChunkZ);
+            return distanceA < distanceB;
+        });
+
+        Scene world;
+        for (const ChunkCoordinate coordinate : chunks)
+        {
+            // Decoration depends only on the world coordinate, never on the player's
+            // current streaming window, so a chunk looks the same when revisited.
+            const std::uint32_t chunkSeed = makeChunkSeed(seed, coordinate.x, coordinate.z);
+            const bool decorate = (coordinate.x == 0 && coordinate.z == 0) || chunkSeed % 4u == 0u;
+            Scene chunk = makeDemoChunk(coordinate.x, coordinate.z, seed, decorate);
+            const float offsetX = static_cast<float>(coordinate.x) * worldChunkSize;
+            const float offsetZ = static_cast<float>(coordinate.z) * worldChunkSize;
+            std::vector<std::size_t> meshIndices;
+            std::vector<std::size_t> materialIndices;
+            meshIndices.reserve(chunk.meshes().size());
+            materialIndices.reserve(chunk.materials().size());
+            for (const Engine::Scene::Material& material : chunk.materials())
+                materialIndices.push_back(world.addMaterial(material));
+            for (const Mesh& mesh : chunk.meshes())
+                meshIndices.push_back(world.addMesh(mesh));
+            for (const Engine::Scene::MeshInstance& object : chunk.objects())
+            {
+                Engine::Scene::Transform transform = object.transform;
+                transform.position.x += offsetX;
+                transform.position.z += offsetZ;
+                world.addObject(meshIndices[object.meshIndex], materialIndices[object.materialIndex], transform);
+            }
+            for (const Engine::Scene::CollisionBox& collider : chunk.colliders())
+            {
+                const Math::Vec3 center{
+                    (collider.minimum.x + collider.maximum.x) * 0.5f + offsetX,
+                    (collider.minimum.y + collider.maximum.y) * 0.5f,
+                    (collider.minimum.z + collider.maximum.z) * 0.5f + offsetZ
+                };
+                const Math::Vec3 size{
+                    collider.maximum.x - collider.minimum.x,
+                    collider.maximum.y - collider.minimum.y,
+                    collider.maximum.z - collider.minimum.z
+                };
+                world.addBoxCollider(center, size);
+            }
+            if (coordinate.x == centerChunkX && coordinate.z == centerChunkZ)
+            {
+                for (const Engine::Scene::PointLight& light : chunk.pointLights())
+                {
+                    Engine::Scene::PointLight worldLight = light;
+                    worldLight.position.x += offsetX;
+                    worldLight.position.z += offsetZ;
+                    world.addPointLight(worldLight);
+                }
+            }
+        }
+        return world;
     }
 
 }

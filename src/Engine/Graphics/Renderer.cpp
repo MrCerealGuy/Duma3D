@@ -722,6 +722,21 @@ namespace Engine::Graphics
             !createShadowShaderProgram() || !createShadowMap())
             return false;
 
+        return uploadSceneMeshes(scene);
+    }
+
+    bool Renderer::updateScene(const Scene::Scene& scene)
+    {
+        if (!m_initialized)
+            return false;
+        destroyMeshes();
+        m_initialized = false;
+        return uploadSceneMeshes(scene);
+    }
+
+    bool Renderer::uploadSceneMeshes(const Scene::Scene& scene)
+    {
+
         m_meshes.reserve(scene.meshes().size());
         std::unordered_map<std::wstring, unsigned int> textureCache;
         const auto loadTexture = [this, &textureCache](const std::string& path)
@@ -945,6 +960,8 @@ namespace Engine::Graphics
 
         const Scene::DirectionalLight& light = scene.directionalLight();
         const Math::Vec3 lightDirection = Math::normalize(light.direction);
+        const Math::Vec3& cameraPosition = camera.position();
+        constexpr float shadowFocusRadius = 72.0f;
         Math::Vec3 lightTarget{0.0f, 0.0f, 0.0f};
         float sceneBoundsRadius = 0.0f;
         bool hasSceneBounds = false;
@@ -962,6 +979,11 @@ namespace Engine::Graphics
                 object.transform.scale
             );
             const Math::Vec3 center = transformPoint(model, mesh.boundsCenter);
+            const float cameraOffsetX = center.x - cameraPosition.x;
+            const float cameraOffsetZ = center.z - cameraPosition.z;
+            if (cameraOffsetX * cameraOffsetX + cameraOffsetZ * cameraOffsetZ >
+                shadowFocusRadius * shadowFocusRadius)
+                continue;
             const float radius = mesh.boundsRadius * std::max({
                 std::abs(object.transform.scale.x),
                 std::abs(object.transform.scale.y),
@@ -1024,7 +1046,7 @@ namespace Engine::Graphics
             70.0f,
             static_cast<float>(width) / static_cast<float>(height),
             0.1f,
-            100.0f
+            145.0f
         );
         const Math::Mat4 viewProjection = Math::multiply(projection, view);
         const Frustum cameraFrustum = extractFrustum(viewProjection);
@@ -1039,7 +1061,6 @@ namespace Engine::Graphics
         glUniform3fPtr(m_lightDirectionLocation, light.direction.x, light.direction.y, light.direction.z);
         glUniform3fPtr(m_lightColorLocation, light.color.x, light.color.y, light.color.z);
         glUniform3fPtr(m_ambientColorLocation, light.ambientColor.x, light.ambientColor.y, light.ambientColor.z);
-        const Math::Vec3& cameraPosition = camera.position();
         glUniform3fPtr(m_cameraPositionLocation, cameraPosition.x, cameraPosition.y, cameraPosition.z);
         const std::size_t pointLightCount = std::min(
             scene.pointLights().size(), Scene::Scene::maximumPointLights
