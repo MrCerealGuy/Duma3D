@@ -5,6 +5,7 @@
 
 #include <windows.h>
 
+#include <array>
 #include <vector>
 
 namespace Engine::Graphics
@@ -46,6 +47,11 @@ namespace Engine::Graphics
         int m_lightColorLocation = -1;
         int m_ambientColorLocation = -1;
         int m_cameraPositionLocation = -1;
+        int m_pointLightCountLocation = -1;
+        std::array<int, Scene::Scene::maximumPointLights> m_pointLightPositionLocations{};
+        std::array<int, Scene::Scene::maximumPointLights> m_pointLightColorLocations{};
+        std::array<int, Scene::Scene::maximumPointLights> m_pointLightIntensityLocations{};
+        std::array<int, Scene::Scene::maximumPointLights> m_pointLightAttenuationLocations{};
         std::vector<GpuMesh> m_meshes;
         bool m_initialized = false;
     };

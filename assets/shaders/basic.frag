@@ -11,6 +11,11 @@ uniform vec3 uLightDirection;
 uniform vec3 uLightColor;
 uniform vec3 uAmbientColor;
 uniform vec3 uCameraPosition;
+uniform int uPointLightCount;
+uniform vec3 uPointLightPositions[4];
+uniform vec3 uPointLightColors[4];
+uniform float uPointLightIntensities[4];
+uniform vec3 uPointLightAttenuations[4];
 out vec4 FragColor;
 void main() {
     vec3 normal = normalize(vNormal);
@@ -21,9 +26,25 @@ void main() {
     float specular = diffuse > 0.0
         ? pow(max(dot(normal, halfwayDirection), 0.0), max(vShininess, 1.0))
         : 0.0;
-    vec3 lighting = uAmbientColor + uLightColor * diffuse;
+    vec3 diffuseLighting = uAmbientColor + uLightColor * diffuse;
+    vec3 specularLighting = vSpecularColor * uLightColor * specular;
+    for (int i = 0; i < uPointLightCount; ++i) {
+        vec3 lightOffset = uPointLightPositions[i] - vWorldPosition;
+        float distanceToLight = length(lightOffset);
+        vec3 pointDirection = lightOffset / max(distanceToLight, 0.0001);
+        vec3 attenuationFactors = uPointLightAttenuations[i];
+        float denominator = attenuationFactors.x + attenuationFactors.y * distanceToLight +
+            attenuationFactors.z * distanceToLight * distanceToLight;
+        float attenuation = uPointLightIntensities[i] / max(denominator, 0.0001);
+        float pointDiffuse = max(dot(normal, pointDirection), 0.0);
+        vec3 pointHalfway = normalize(pointDirection + viewDirection);
+        float pointSpecular = pointDiffuse > 0.0
+            ? pow(max(dot(normal, pointHalfway), 0.0), max(vShininess, 1.0))
+            : 0.0;
+        diffuseLighting += uPointLightColors[i] * pointDiffuse * attenuation;
+        specularLighting += vSpecularColor * uPointLightColors[i] * pointSpecular * attenuation;
+    }
     vec3 textureColor = texture(uDiffuseTexture, vTexCoord).rgb;
-    vec3 diffuseColor = uAlbedo * vDiffuseColor * textureColor * lighting;
-    vec3 specularColor = vSpecularColor * uLightColor * specular;
-    FragColor = vec4(diffuseColor + specularColor, 1.0);
+    vec3 diffuseColor = uAlbedo * vDiffuseColor * textureColor * diffuseLighting;
+    FragColor = vec4(diffuseColor + specularLighting, 1.0);
 }

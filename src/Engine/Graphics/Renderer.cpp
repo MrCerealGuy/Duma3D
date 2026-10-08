@@ -3,6 +3,7 @@
 
 #include <gl/GL.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cctype>
 #include <cstdint>
@@ -64,6 +65,7 @@ using PFNGLGETUNIFORMLOCATIONPROC = int (APIENTRY *)(unsigned int, const char*);
 using PFNGLUNIFORMMATRIX4FVPROC = void (APIENTRY *)(int, int, unsigned char, const float*);
 using PFNGLUNIFORM3FPROC = void (APIENTRY *)(int, float, float, float);
 using PFNGLUNIFORM1IPROC = void (APIENTRY *)(int, int);
+using PFNGLUNIFORM1FPROC = void (APIENTRY *)(int, float);
 using PFNGLENABLEVERTEXATTRIBARRAYPROC = void (APIENTRY *)(unsigned int);
 using PFNGLVERTEXATTRIBPOINTERPROC = void (APIENTRY *)(unsigned int, int, unsigned int, unsigned char, int, const void*);
 using PFNGLDELETEBUFFERSPROC = void (APIENTRY *)(int, const unsigned int*);
@@ -91,6 +93,7 @@ static PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocationPtr;
 static PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fvPtr;
 static PFNGLUNIFORM3FPROC glUniform3fPtr;
 static PFNGLUNIFORM1IPROC glUniform1iPtr;
+static PFNGLUNIFORM1FPROC glUniform1fPtr;
 static PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArrayPtr;
 static PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointerPtr;
 static PFNGLDELETEBUFFERSPROC glDeleteBuffersPtr;
@@ -289,6 +292,7 @@ namespace Engine::Graphics
         LOAD(glUniformMatrix4fvPtr, "glUniformMatrix4fv");
         LOAD(glUniform3fPtr, "glUniform3f");
         LOAD(glUniform1iPtr, "glUniform1i");
+        LOAD(glUniform1fPtr, "glUniform1f");
         LOAD(glEnableVertexAttribArrayPtr, "glEnableVertexAttribArray");
         LOAD(glVertexAttribPointerPtr, "glVertexAttribPointer");
 #undef LOAD
@@ -360,9 +364,34 @@ namespace Engine::Graphics
         m_lightColorLocation = glGetUniformLocationPtr(m_program, "uLightColor");
         m_ambientColorLocation = glGetUniformLocationPtr(m_program, "uAmbientColor");
         m_cameraPositionLocation = glGetUniformLocationPtr(m_program, "uCameraPosition");
-        return m_mvpLocation >= 0 && m_modelLocation >= 0 && m_textureLocation >= 0 && m_albedoLocation >= 0 &&
-            m_lightDirectionLocation >= 0 && m_lightColorLocation >= 0 &&
-            m_ambientColorLocation >= 0 && m_cameraPositionLocation >= 0;
+        m_pointLightCountLocation = glGetUniformLocationPtr(m_program, "uPointLightCount");
+        for (std::size_t index = 0; index < Scene::Scene::maximumPointLights; ++index)
+        {
+            const std::string suffix = "[" + std::to_string(index) + "]";
+            m_pointLightPositionLocations[index] = glGetUniformLocationPtr(
+                m_program, ("uPointLightPositions" + suffix).c_str()
+            );
+            m_pointLightColorLocations[index] = glGetUniformLocationPtr(
+                m_program, ("uPointLightColors" + suffix).c_str()
+            );
+            m_pointLightIntensityLocations[index] = glGetUniformLocationPtr(
+                m_program, ("uPointLightIntensities" + suffix).c_str()
+            );
+            m_pointLightAttenuationLocations[index] = glGetUniformLocationPtr(
+                m_program, ("uPointLightAttenuations" + suffix).c_str()
+            );
+        }
+        if (m_mvpLocation < 0 || m_modelLocation < 0 || m_textureLocation < 0 || m_albedoLocation < 0 ||
+            m_lightDirectionLocation < 0 || m_lightColorLocation < 0 || m_ambientColorLocation < 0 ||
+            m_cameraPositionLocation < 0 || m_pointLightCountLocation < 0)
+            return false;
+        for (std::size_t index = 0; index < Scene::Scene::maximumPointLights; ++index)
+        {
+            if (m_pointLightPositionLocations[index] < 0 || m_pointLightColorLocations[index] < 0 ||
+                m_pointLightIntensityLocations[index] < 0 || m_pointLightAttenuationLocations[index] < 0)
+                return false;
+        }
+        return true;
     }
 
     bool Renderer::initialize(HDC deviceContext, const Scene::Scene& scene)
@@ -496,6 +525,29 @@ namespace Engine::Graphics
         glUniform3fPtr(m_ambientColorLocation, light.ambientColor.x, light.ambientColor.y, light.ambientColor.z);
         const Math::Vec3& cameraPosition = camera.position();
         glUniform3fPtr(m_cameraPositionLocation, cameraPosition.x, cameraPosition.y, cameraPosition.z);
+        const std::size_t pointLightCount = std::min(
+            scene.pointLights().size(), Scene::Scene::maximumPointLights
+        );
+        glUniform1iPtr(m_pointLightCountLocation, static_cast<int>(pointLightCount));
+        for (std::size_t index = 0; index < pointLightCount; ++index)
+        {
+            const Scene::PointLight& pointLight = scene.pointLights()[index];
+            glUniform3fPtr(
+                m_pointLightPositionLocations[index],
+                pointLight.position.x, pointLight.position.y, pointLight.position.z
+            );
+            glUniform3fPtr(
+                m_pointLightColorLocations[index],
+                pointLight.color.x, pointLight.color.y, pointLight.color.z
+            );
+            glUniform1fPtr(m_pointLightIntensityLocations[index], pointLight.intensity);
+            glUniform3fPtr(
+                m_pointLightAttenuationLocations[index],
+                pointLight.constantAttenuation,
+                pointLight.linearAttenuation,
+                pointLight.quadraticAttenuation
+            );
+        }
         for (const Scene::MeshInstance& object : scene.objects())
         {
             if (object.meshIndex >= m_meshes.size() || object.materialIndex >= scene.materials().size())
@@ -575,6 +627,11 @@ namespace Engine::Graphics
         m_lightColorLocation = -1;
         m_ambientColorLocation = -1;
         m_cameraPositionLocation = -1;
+        m_pointLightCountLocation = -1;
+        m_pointLightPositionLocations.fill(-1);
+        m_pointLightColorLocations.fill(-1);
+        m_pointLightIntensityLocations.fill(-1);
+        m_pointLightAttenuationLocations.fill(-1);
         m_initialized = false;
         m_deviceContext = nullptr;
     }

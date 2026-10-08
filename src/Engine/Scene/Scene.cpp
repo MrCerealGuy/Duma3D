@@ -17,6 +17,17 @@ namespace Engine::Scene
         return m_materials.size() - 1;
     }
 
+    bool Scene::addPointLight(PointLight light)
+    {
+        if (m_pointLights.size() >= maximumPointLights || light.intensity < 0.0f ||
+            light.constantAttenuation <= 0.0f || light.linearAttenuation < 0.0f ||
+            light.quadraticAttenuation < 0.0f)
+            return false;
+
+        m_pointLights.push_back(light);
+        return true;
+    }
+
     bool Scene::addObject(std::size_t meshIndex, std::size_t materialIndex, Transform transform)
     {
         constexpr float minimumScale = 1.0e-6f;
@@ -34,6 +45,7 @@ namespace Engine::Scene
     Scene makeDemoScene()
     {
         Scene scene;
+        scene.addPointLight({{-1.2f, 1.8f, 1.4f}, {1.0f, 0.68f, 0.38f}, 2.0f, 1.0f, 0.09f, 0.032f});
         const std::size_t cube = scene.addMesh(Mesh::cube());
         const std::size_t sphere = scene.addMesh(Mesh::sphere());
         Mesh pyramid;
