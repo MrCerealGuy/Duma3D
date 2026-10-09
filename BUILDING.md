@@ -31,3 +31,14 @@ cmake --build build
 ```
 
 Then run `build\Duma3D.exe`. CMake copies the assets to `build\assets` beside the executable. The application resolves asset paths relative to the executable, even when launched from another working directory.
+
+## Regenerate Demo 1 textures
+
+The tileable procedural PPM textures can be regenerated with the included MinGW compiler:
+
+```bat
+"C:\Program Files\CodeBlocks\MinGW\bin\c++.exe" -std=c++20 -O2 -static -static-libgcc -static-libstdc++ tools\GenerateDemoTextures.cpp -o build\GenerateDemoTextures.exe
+build\GenerateDemoTextures.exe assets\textures
+```
+
+Rebuild `Duma3D` afterward to copy the updated textures to `build\assets`.

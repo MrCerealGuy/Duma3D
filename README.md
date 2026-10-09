@@ -21,6 +21,7 @@ See [ENGINE_SPECIFICATIONS.md](ENGINE_SPECIFICATIONS.md) for the engine architec
 
 ```text
 Duma3D/
+├── .gitattributes
 ├── .vscode/
 │   ├── launch.json
 │   └── tasks.json
@@ -47,6 +48,8 @@ Duma3D/
 │       └── Demo_1/
 ├── BUILDING.md
 ├── ENGINE_SPECIFICATIONS.md
+├── tools/
+│   └── GenerateDemoTextures.cpp
 ├── CMakeLists.txt
 ├── Duma3D.code-workspace
 └── README.md

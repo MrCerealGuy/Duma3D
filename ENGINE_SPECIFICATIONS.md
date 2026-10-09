@@ -18,7 +18,7 @@ This document describes the current architecture and capabilities of Duma3D. The
 
 Demo 1 generates terrain in 64-by-64-meter chunks using a seamless world-space height function. It keeps a 5-by-5 chunk area around the player loaded. Chunk terrain, vegetation, and optional houses are determined by world seed and chunk coordinate, so revisiting a chunk reproduces its content. A new seed is generated at each application launch. Demo 1 supplies the height sampler used by the engine character controller, so the same terrain function determines both rendered ground and player elevation.
 
-The terrain uses spatial noise fields and randomized patches to distribute grass, soil, rock, and cobblestone surfaces. Combined procedural meshes add grass tufts, stone clusters, dry branches, and fallen leaves while leaving the spawn point, houses, and entrances mostly clear.
+The terrain uses spatial noise fields and randomized patches to distribute grass, soil, rock, and cobblestone surfaces. Combined procedural meshes add grass tufts, stone clusters, dry branches, and fallen leaves while leaving the spawn point, houses, and entrances mostly clear. Demo 1 uses tileable 256×256 procedural P6 PPM textures with material-specific detail for grass, soil, stone, plaster, roof tiles, wood, bark, and foliage. The reproducible texture generator is `tools/GenerateDemoTextures.cpp`.
 
 ## Demo 1 scene
 
