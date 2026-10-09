@@ -8,6 +8,8 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace Engine::Graphics
@@ -49,6 +51,9 @@ namespace Engine::Graphics
         bool createShadowMap();
         bool uploadSceneMeshes(const Scene::Scene& scene);
         void renderShadowMap(const Scene::Scene& scene, const Math::Mat4& lightSpaceMatrix);
+        void releaseGpuMesh(const GpuMesh& mesh);
+        void destroyGpuMeshCache();
+        void destroyTextures();
         void destroyMeshes();
 
         HDC m_deviceContext = nullptr;
@@ -72,9 +77,11 @@ namespace Engine::Graphics
         std::array<int, Scene::Scene::maximumPointLights> m_pointLightColorLocations{};
         std::array<int, Scene::Scene::maximumPointLights> m_pointLightIntensityLocations{};
         std::array<int, Scene::Scene::maximumPointLights> m_pointLightAttenuationLocations{};
-        std::vector<GpuMesh> m_meshes;
+        std::vector<std::uint64_t> m_sceneMeshKeys;
+        std::unordered_map<std::uint64_t, GpuMesh> m_gpuMeshCache;
         std::vector<unsigned int> m_materialTextures;
         std::vector<unsigned int> m_textures;
+        std::unordered_map<std::wstring, unsigned int> m_textureCache;
         bool m_initialized = false;
     };
 }

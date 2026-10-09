@@ -5,6 +5,7 @@
 #include <wincodec.h>
 
 #include <algorithm>
+#include <bit>
 #include <cstddef>
 #include <cctype>
 #include <cmath>
@@ -14,7 +15,7 @@
 #include <limits>
 #include <sstream>
 #include <string>
-#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -481,6 +482,63 @@ namespace
         });
         return key;
     }
+
+    std::uint64_t meshCacheKey(const Engine::Scene::Mesh& mesh)
+    {
+        std::uint64_t hash = 14695981039346656037ull;
+        const auto addByte = [&hash](std::uint8_t value)
+        {
+            hash ^= value;
+            hash *= 1099511628211ull;
+        };
+        const auto addSize = [&addByte](std::size_t value)
+        {
+            for (std::size_t byte = 0; byte < sizeof(value); ++byte)
+                addByte(static_cast<std::uint8_t>((value >> (byte * 8)) & 0xffu));
+        };
+        const auto addFloat = [&addByte](float value)
+        {
+            const std::uint32_t bits = std::bit_cast<std::uint32_t>(value);
+            for (std::size_t byte = 0; byte < sizeof(bits); ++byte)
+                addByte(static_cast<std::uint8_t>((bits >> (byte * 8)) & 0xffu));
+        };
+        const auto addVec2 = [&addFloat](Engine::Math::Vec2 value)
+        {
+            addFloat(value.x);
+            addFloat(value.y);
+        };
+        const auto addVec3 = [&addFloat](Engine::Math::Vec3 value)
+        {
+            addFloat(value.x);
+            addFloat(value.y);
+            addFloat(value.z);
+        };
+
+        addSize(mesh.vertices.size());
+        for (const Engine::Scene::Vertex& vertex : mesh.vertices)
+        {
+            addVec3(vertex.position);
+            addVec3(vertex.normal);
+            addVec3(vertex.diffuseColor);
+            addVec2(vertex.textureCoordinate);
+            addVec3(vertex.specularColor);
+            addFloat(vertex.shininess);
+            addVec3(vertex.emissiveColor);
+        }
+        addSize(mesh.indices.size());
+        for (const std::uint32_t index : mesh.indices)
+            addSize(index);
+        addSize(mesh.sections.size());
+        for (const Engine::Scene::MeshSection& section : mesh.sections)
+        {
+            addSize(section.firstIndex);
+            addSize(section.indexCount);
+            addSize(section.diffuseTexturePath.size());
+            for (const unsigned char character : section.diffuseTexturePath)
+                addByte(character);
+        }
+        return hash;
+    }
 }
 
 namespace Engine::Graphics
@@ -729,7 +787,8 @@ namespace Engine::Graphics
     {
         if (!m_initialized)
             return false;
-        destroyMeshes();
+        m_sceneMeshKeys.clear();
+        m_materialTextures.clear();
         m_initialized = false;
         return uploadSceneMeshes(scene);
     }
@@ -737,12 +796,14 @@ namespace Engine::Graphics
     bool Renderer::uploadSceneMeshes(const Scene::Scene& scene)
     {
 
-        m_meshes.reserve(scene.meshes().size());
-        std::unordered_map<std::wstring, unsigned int> textureCache;
-        const auto loadTexture = [this, &textureCache](const std::string& path)
+        m_sceneMeshKeys.reserve(scene.meshes().size());
+        std::unordered_set<std::uint64_t> activeMeshKeys;
+        std::unordered_set<std::wstring> activeTextureKeys;
+        const auto loadTexture = [this, &activeTextureKeys](const std::string& path)
         {
             const std::wstring key = textureCacheKey(path);
-            if (const auto cached = textureCache.find(key); cached != textureCache.end())
+            activeTextureKeys.insert(key);
+            if (const auto cached = m_textureCache.find(key); cached != m_textureCache.end())
                 return cached->second;
 
             ImageData image;
@@ -761,7 +822,7 @@ namespace Engine::Graphics
                 GL_RGB, GL_UNSIGNED_BYTE, image.rgb.data());
             glGenerateMipmapPtr(GL_TEXTURE_2D);
             glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-            textureCache.emplace(key, texture);
+            m_textureCache.emplace(key, texture);
             return texture;
         };
         m_materialTextures.reserve(scene.materials().size());
@@ -770,6 +831,19 @@ namespace Engine::Graphics
 
         for (const Scene::Mesh& mesh : scene.meshes())
         {
+            const std::uint64_t cacheKey = meshCacheKey(mesh);
+            if (const auto cached = m_gpuMeshCache.find(cacheKey); cached != m_gpuMeshCache.end())
+            {
+                activeMeshKeys.insert(cacheKey);
+                m_sceneMeshKeys.push_back(cacheKey);
+                if (mesh.sections.empty())
+                    loadTexture({});
+                else
+                    for (const Scene::MeshSection& section : mesh.sections)
+                        loadTexture(section.diffuseTexturePath);
+                continue;
+            }
+
             GpuMesh gpuMesh;
             if (!mesh.vertices.empty())
             {
@@ -905,7 +979,35 @@ namespace Engine::Graphics
             else
                 for (const Scene::MeshSection& section : mesh.sections)
                     createSection(section);
-            m_meshes.push_back(gpuMesh);
+            m_gpuMeshCache.emplace(cacheKey, std::move(gpuMesh));
+            m_sceneMeshKeys.push_back(cacheKey);
+            activeMeshKeys.insert(cacheKey);
+        }
+
+        for (auto mesh = m_gpuMeshCache.begin(); mesh != m_gpuMeshCache.end();)
+        {
+            if (activeMeshKeys.find(mesh->first) != activeMeshKeys.end())
+            {
+                ++mesh;
+                continue;
+            }
+            releaseGpuMesh(mesh->second);
+            mesh = m_gpuMeshCache.erase(mesh);
+        }
+
+        for (auto texture = m_textureCache.begin(); texture != m_textureCache.end();)
+        {
+            if (activeTextureKeys.find(texture->first) != activeTextureKeys.end())
+            {
+                ++texture;
+                continue;
+            }
+
+            const unsigned int textureId = texture->second;
+            if (textureId)
+                glDeleteTextures(1, &textureId);
+            m_textures.erase(std::remove(m_textures.begin(), m_textures.end(), textureId), m_textures.end());
+            texture = m_textureCache.erase(texture);
         }
 
         m_initialized = true;
@@ -922,7 +1024,11 @@ namespace Engine::Graphics
         const Frustum lightFrustum = extractFrustum(lightSpaceMatrix);
         for (const Scene::MeshInstance& object : scene.objects())
         {
-            if (object.meshIndex >= m_meshes.size())
+            if (object.meshIndex >= m_sceneMeshKeys.size())
+                continue;
+
+            const auto cachedMesh = m_gpuMeshCache.find(m_sceneMeshKeys[object.meshIndex]);
+            if (cachedMesh == m_gpuMeshCache.end())
                 continue;
 
             const Math::Mat4 model = Math::composeTransform(
@@ -930,7 +1036,7 @@ namespace Engine::Graphics
                 object.transform.rotationDegrees,
                 object.transform.scale
             );
-            const GpuMesh& mesh = m_meshes[object.meshIndex];
+            const GpuMesh& mesh = cachedMesh->second;
             if (mesh.hasBounds)
             {
                 const Math::Vec3 worldCenter = transformPoint(model, mesh.boundsCenter);
@@ -967,9 +1073,12 @@ namespace Engine::Graphics
         bool hasSceneBounds = false;
         for (const Scene::MeshInstance& object : scene.objects())
         {
-            if (object.meshIndex >= m_meshes.size())
+            if (object.meshIndex >= m_sceneMeshKeys.size())
                 continue;
-            const GpuMesh& mesh = m_meshes[object.meshIndex];
+            const auto cachedMesh = m_gpuMeshCache.find(m_sceneMeshKeys[object.meshIndex]);
+            if (cachedMesh == m_gpuMeshCache.end())
+                continue;
+            const GpuMesh& mesh = cachedMesh->second;
             if (!mesh.hasBounds)
                 continue;
 
@@ -1087,7 +1196,11 @@ namespace Engine::Graphics
         }
         for (const Scene::MeshInstance& object : scene.objects())
         {
-            if (object.meshIndex >= m_meshes.size() || object.materialIndex >= scene.materials().size())
+            if (object.meshIndex >= m_sceneMeshKeys.size() || object.materialIndex >= scene.materials().size())
+                continue;
+
+            const auto cachedMesh = m_gpuMeshCache.find(m_sceneMeshKeys[object.meshIndex]);
+            if (cachedMesh == m_gpuMeshCache.end())
                 continue;
 
             const Math::Mat4 model = Math::composeTransform(
@@ -1096,7 +1209,7 @@ namespace Engine::Graphics
                 object.transform.scale
             );
             const Math::Mat4 mvp = Math::multiply(projection, Math::multiply(view, model));
-            const GpuMesh& mesh = m_meshes[object.meshIndex];
+            const GpuMesh& mesh = cachedMesh->second;
             if (mesh.hasBounds)
             {
                 const Math::Vec3 worldCenter = transformPoint(model, mesh.boundsCenter);
@@ -1134,32 +1247,41 @@ namespace Engine::Graphics
         SwapBuffers(m_deviceContext);
     }
 
-    void Renderer::destroyMeshes()
+    void Renderer::releaseGpuMesh(const GpuMesh& mesh)
     {
-        if (glDeleteBuffersPtr)
+        if (glDeleteBuffersPtr && mesh.vertexBuffer)
+            glDeleteBuffersPtr(1, &mesh.vertexBuffer);
+        if (glDeleteBuffersPtr && mesh.indexBuffer)
+            glDeleteBuffersPtr(1, &mesh.indexBuffer);
+        if (glDeleteVertexArraysPtr && mesh.vertexArray)
+            glDeleteVertexArraysPtr(1, &mesh.vertexArray);
+    }
+
+    void Renderer::destroyGpuMeshCache()
+    {
+        for (const auto& [key, mesh] : m_gpuMeshCache)
         {
-            for (const GpuMesh& mesh : m_meshes)
-            {
-                if (mesh.vertexBuffer)
-                    glDeleteBuffersPtr(1, &mesh.vertexBuffer);
-                if (mesh.indexBuffer)
-                    glDeleteBuffersPtr(1, &mesh.indexBuffer);
-            }
+            (void)key;
+            releaseGpuMesh(mesh);
         }
-        if (glDeleteVertexArraysPtr)
-        {
-            for (const GpuMesh& mesh : m_meshes)
-            {
-                if (mesh.vertexArray)
-                    glDeleteVertexArraysPtr(1, &mesh.vertexArray);
-            }
-        }
+        m_gpuMeshCache.clear();
+        m_sceneMeshKeys.clear();
+        m_materialTextures.clear();
+    }
+
+    void Renderer::destroyTextures()
+    {
         for (const unsigned int texture : m_textures)
             if (texture)
                 glDeleteTextures(1, &texture);
         m_textures.clear();
-        m_materialTextures.clear();
-        m_meshes.clear();
+        m_textureCache.clear();
+    }
+
+    void Renderer::destroyMeshes()
+    {
+        destroyGpuMeshCache();
+        destroyTextures();
     }
 
     void Renderer::shutdown()

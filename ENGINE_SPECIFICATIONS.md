@@ -30,6 +30,8 @@ Procedural base meshes include a cube and a UV sphere with smooth normals. Tiled
 
 The renderer, mesh data, and scene objects are organized into separate engine modules. OBJ vertices are deduplicated by their attributes. GPU index buffers use 16-bit indices when possible and 32-bit indices otherwise. The main and shadow passes cull objects whose mesh bounding spheres fall outside the camera or light frustum; the light frustum is computed from nearby scene objects.
 
+GPU meshes are cached by their vertex, index, and material-section data across scene updates. Unchanged chunk geometry and shared base meshes reuse existing vertex and index buffers; meshes no longer used are released after the new scene is uploaded. GPU textures are cached by resolved asset path in the same way.
+
 Lighting combines ambient light, a directional light with 3×3 percentage-closer filtering (PCF) shadows, up to four attenuated point lights, Blinn–Phong specular highlights, and emissive color. Color textures are decoded as sRGB. Lighting and Reinhard tone mapping run in linear space before the output is encoded back to sRGB.
 
 ## Model and texture support
