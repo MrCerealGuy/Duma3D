@@ -7,6 +7,7 @@ This document describes the current architecture and capabilities of Duma3D. The
 - Windows application and input handling use Win32.
 - OpenGL contexts are created with WGL. VSync is enabled through WGL when the graphics driver supports the extension.
 - The engine contains a small OpenGL function loader, minimal custom vector and matrix math, indexed meshes, and GLSL shaders under `assets/shaders`.
+- `Engine::Physics::CharacterController` provides kinematic first-person movement with gravity, jumping, terrain-height sampling, and scene-box collision. A demo supplies its ground-height function and translates input into movement distances.
 - The reusable engine is built as the static library `Duma3DEngine`. Demo scenes, input handling, and entry points are kept separately under `src/Demos/<DemoName>`. `Demo_1` is the current sample application.
 - Asset paths are resolved relative to the executable directory.
 - There are no external C++ library dependencies or downloads during CMake configuration. GLAD and GLM are not used. MinGW builds link their runtime libraries statically.
@@ -15,7 +16,7 @@ This document describes the current architecture and capabilities of Duma3D. The
 
 `Engine::World::ChunkWorld` manages a square loaded area of chunks, their coordinates, and a world seed. It caches generated chunk scenes, unloads chunks outside the configured radius, and combines the remaining local scenes for rendering. Content is supplied through a generator callback, allowing different demos to define their own procedural worlds.
 
-Demo 1 generates terrain in 64-by-64-meter chunks using a seamless world-space height function. It keeps a 5-by-5 chunk area around the player loaded. Chunk terrain, vegetation, and optional houses are determined by world seed and chunk coordinate, so revisiting a chunk reproduces its content. A new seed is generated at each application launch.
+Demo 1 generates terrain in 64-by-64-meter chunks using a seamless world-space height function. It keeps a 5-by-5 chunk area around the player loaded. Chunk terrain, vegetation, and optional houses are determined by world seed and chunk coordinate, so revisiting a chunk reproduces its content. A new seed is generated at each application launch. Demo 1 supplies the height sampler used by the engine character controller, so the same terrain function determines both rendered ground and player elevation.
 
 The terrain uses spatial noise fields and randomized patches to distribute grass, soil, rock, and cobblestone surfaces. Combined procedural meshes add grass tufts, stone clusters, dry branches, and fallen leaves while leaving the spawn point, houses, and entrances mostly clear.
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine/Graphics/Renderer.hpp"
+#include "Engine/Physics/CharacterController.hpp"
 #include "Engine/Scene/Scene.hpp"
 #include "Engine/World/ChunkWorld.hpp"
 
@@ -42,9 +43,9 @@ private:
     bool running_ = true;
     bool gravityMode_ = true;
     bool jumpRequested_ = false;
-    float verticalVelocity_ = 0.0f;
     bool keys_[256]{};
     Engine::Graphics::Camera camera_{{0.0f, 1.7f, 9.0f}};
+    Engine::Physics::CharacterController characterController_;
     Engine::Graphics::Renderer renderer_;
     Engine::World::ChunkWorld world_;
     Engine::Scene::Scene scene_;

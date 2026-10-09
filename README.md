@@ -32,6 +32,7 @@ Duma3D/
 │   ├── Assets/
 │   ├── Graphics/
 │   ├── Math/
+│   ├── Physics/
 │   ├── Scene/
 │   └── World/
 ├── src/
@@ -39,6 +40,7 @@ Duma3D/
 │   │   ├── Assets/
 │   │   ├── Graphics/
 │   │   ├── Math/
+│   │   ├── Physics/
 │   │   ├── Scene/
 │   │   └── World/
 │   └── Demos/

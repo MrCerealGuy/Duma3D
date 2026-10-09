@@ -25,9 +25,6 @@ using PFNWGLSWAPINTERVALEXTPROC = BOOL (WINAPI *)(int);
 
 namespace
 {
-    constexpr float playerRadius = 0.28f;
-    constexpr float playerEyeHeight = 1.7f;
-    constexpr float playerHeight = 1.8f;
     constexpr int worldChunkRadius = 2;
 
     template <typename Function>
@@ -46,24 +43,6 @@ namespace
         return function;
     }
 
-    bool collidesWithScene(const Engine::Scene::Scene& scene, Engine::Math::Vec3 position)
-    {
-        const float feet = position.y - playerEyeHeight;
-        const float head = feet + playerHeight;
-        for (const Engine::Scene::CollisionBox& box : scene.colliders())
-        {
-            if (head <= box.minimum.y || feet >= box.maximum.y)
-                continue;
-
-            const float closestX = std::clamp(position.x, box.minimum.x, box.maximum.x);
-            const float closestZ = std::clamp(position.z, box.minimum.z, box.maximum.z);
-            const float offsetX = position.x - closestX;
-            const float offsetZ = position.z - closestZ;
-            if (offsetX * offsetX + offsetZ * offsetZ < playerRadius * playerRadius)
-                return true;
-        }
-        return false;
-    }
 }
 
 Application::Application(int width, int height, std::wstring title)
@@ -247,53 +226,14 @@ void Application::update(float dt)
         right /= inputLength;
     }
 
-    const Engine::Math::Vec3 startingPosition = camera_.position();
-    camera_.moveOnGround(forward * speed, 0.0f);
-    if (collidesWithScene(scene_, camera_.position()))
-        camera_.setPosition(startingPosition);
-    const Engine::Math::Vec3 afterForward = camera_.position();
-    camera_.moveOnGround(0.0f, right * speed);
-    if (collidesWithScene(scene_, camera_.position()))
-        camera_.setPosition(afterForward);
-
-    Engine::Math::Vec3 position = camera_.position();
-    const float groundHeight = Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(
-        position.x, position.z, world_.config().seed);
-    float feet = position.y - playerEyeHeight;
-    const bool onGround = feet <= groundHeight + 0.02f && verticalVelocity_ <= 0.0f;
-    if (jumpRequested_ && onGround)
-        verticalVelocity_ = 6.0f;
+    const Engine::Physics::GroundHeightSampler sampleGroundHeight = [this](float x, float z)
+    {
+        return Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(x, z, world_.config().seed);
+    };
+    characterController_.update(
+        scene_, camera_, forward * speed, right * speed, dt, jumpRequested_, sampleGroundHeight
+    );
     jumpRequested_ = false;
-
-    verticalVelocity_ -= 18.0f * dt;
-    float nextFeet = feet + verticalVelocity_ * dt;
-    bool hitCeiling = false;
-    if (verticalVelocity_ > 0.0f)
-    {
-        for (const Engine::Scene::CollisionBox& box : scene_.colliders())
-        {
-            const float closestX = std::clamp(position.x, box.minimum.x, box.maximum.x);
-            const float closestZ = std::clamp(position.z, box.minimum.z, box.maximum.z);
-            const float offsetX = position.x - closestX;
-            const float offsetZ = position.z - closestZ;
-            if (offsetX * offsetX + offsetZ * offsetZ >= playerRadius * playerRadius ||
-                feet + playerHeight > box.minimum.y ||
-                nextFeet + playerHeight <= box.minimum.y)
-                continue;
-
-            nextFeet = box.minimum.y - playerHeight;
-            verticalVelocity_ = 0.0f;
-            hitCeiling = true;
-            break;
-        }
-    }
-    if (!hitCeiling && nextFeet <= groundHeight)
-    {
-        nextFeet = groundHeight;
-        verticalVelocity_ = 0.0f;
-    }
-    position.y = nextFeet + playerEyeHeight;
-    camera_.setPosition(position);
 }
 
 void Application::updateWorldChunks()
@@ -315,14 +255,15 @@ void Application::updateWorldChunks()
 void Application::toggleMovementMode()
 {
     gravityMode_ = !gravityMode_;
-    verticalVelocity_ = 0.0f;
+    characterController_.resetVerticalVelocity();
     jumpRequested_ = false;
     if (gravityMode_)
     {
-        Engine::Math::Vec3 position = camera_.position();
-        position.y = Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(
-            position.x, position.z, world_.config().seed) + playerEyeHeight;
-        camera_.setPosition(position);
+        const Engine::Physics::GroundHeightSampler sampleGroundHeight = [this](float x, float z)
+        {
+            return Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(x, z, world_.config().seed);
+        };
+        characterController_.placeOnGround(camera_, sampleGroundHeight);
     }
 
     updateHud();
@@ -431,10 +372,11 @@ int Application::run()
         return 1;
     }
 
-    Engine::Math::Vec3 startPosition = camera_.position();
-    startPosition.y = Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(
-        startPosition.x, startPosition.z, world_.config().seed) + playerEyeHeight;
-    camera_.setPosition(startPosition);
+    const Engine::Physics::GroundHeightSampler sampleGroundHeight = [this](float x, float z)
+    {
+        return Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(x, z, world_.config().seed);
+    };
+    characterController_.placeOnGround(camera_, sampleGroundHeight);
     updateHud();
 
     ShowWindow(hwnd_, SW_SHOWMAXIMIZED);

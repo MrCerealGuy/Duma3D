@@ -16,6 +16,7 @@ add_library(Duma3DEngine STATIC
     src/Engine/Graphics/Camera.cpp
     src/Engine/Graphics/Renderer.cpp
     src/Engine/Math/Math.cpp
+    src/Engine/Physics/CharacterController.cpp
     src/Engine/Scene/Mesh.cpp
     src/Engine/Scene/Scene.cpp
     src/Engine/World/ChunkWorld.cpp
