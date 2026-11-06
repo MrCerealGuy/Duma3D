@@ -12,8 +12,9 @@
 
 namespace Duma3D::Demos::Demo_1
 {
-    using Scene = Engine::Scene::Scene;
-    using Mesh = Engine::Scene::Mesh;
+    using Scene = Engine::Graphics::Scene::Scene;
+    using ChunkData = Engine::Game::World::ChunkData;
+    using Mesh = Engine::Graphics::Scene::Mesh;
     namespace Math = Engine::Math;
 
     namespace
@@ -313,7 +314,7 @@ namespace Duma3D::Demos::Demo_1
             const std::uint32_t firstVertex = static_cast<std::uint32_t>(destination.vertices.size());
             const float cosine = std::cos(rotationY);
             const float sine = std::sin(rotationY);
-            for (const Engine::Scene::Vertex& vertex : source.vertices)
+            for (const Engine::Graphics::Scene::Vertex& vertex : source.vertices)
             {
                 Math::Vec3 localPosition{
                     vertex.position.x * scale.x,
@@ -406,6 +407,7 @@ namespace Duma3D::Demos::Demo_1
         }
 
         void addWall(
+            ChunkData& chunk,
             Scene& scene,
             std::size_t cubeMesh,
             std::size_t material,
@@ -414,10 +416,11 @@ namespace Duma3D::Demos::Demo_1
         )
         {
             addBox(scene, cubeMesh, material, position, scale);
-            scene.addBoxCollider(position, scale);
+            chunk.addBoxCollider(position, scale);
         }
 
         void addHouse(
+            ChunkData& chunk,
             Scene& scene,
             std::size_t cubeMesh,
             std::size_t gableMesh,
@@ -446,20 +449,20 @@ namespace Duma3D::Demos::Demo_1
 
             addBox(scene, cubeMesh, floorMaterial,
                 {center.x, floorTop * 0.5f, center.z}, {width, floorTop, depth});
-            addWall(scene, cubeMesh, wallMaterial,
+            addWall(chunk, scene, cubeMesh, wallMaterial,
                 {center.x, wallCenterY, backZ}, {width, wallHeight, wallThickness});
 
             const float entranceStart = options.entranceOffset - doorWidth * 0.5f;
             const float entranceEnd = options.entranceOffset + doorWidth * 0.5f;
             const float leftFrontWidth = entranceStart + width * 0.5f;
             const float rightFrontWidth = width * 0.5f - entranceEnd;
-            addWall(scene, cubeMesh, wallMaterial,
+            addWall(chunk, scene, cubeMesh, wallMaterial,
                 {center.x + (-width * 0.5f + entranceStart) * 0.5f, wallCenterY, frontZ},
                 {leftFrontWidth, wallHeight, wallThickness});
-            addWall(scene, cubeMesh, wallMaterial,
+            addWall(chunk, scene, cubeMesh, wallMaterial,
                 {center.x + (entranceEnd + width * 0.5f) * 0.5f, wallCenterY, frontZ},
                 {rightFrontWidth, wallHeight, wallThickness});
-            addWall(scene, cubeMesh, wallMaterial,
+            addWall(chunk, scene, cubeMesh, wallMaterial,
                 {center.x + options.entranceOffset, floorTop + (wallHeight + doorHeight) * 0.5f, frontZ},
                 {doorWidth, wallHeight - doorHeight, wallThickness});
 
@@ -469,15 +472,15 @@ namespace Duma3D::Demos::Demo_1
             const float partitionDoorEnd = options.entranceOffset + interiorDoorWidth * 0.5f;
             const float partitionLeftWidth = partitionDoorStart + width * 0.5f;
             const float partitionRightWidth = width * 0.5f - partitionDoorEnd;
-            addWall(scene, cubeMesh, wallMaterial,
+            addWall(chunk, scene, cubeMesh, wallMaterial,
                 {center.x + (-width * 0.5f + partitionDoorStart) * 0.5f,
                     wallCenterY, partitionZ},
                 {partitionLeftWidth, wallHeight, wallThickness});
-            addWall(scene, cubeMesh, wallMaterial,
+            addWall(chunk, scene, cubeMesh, wallMaterial,
                 {center.x + (partitionDoorEnd + width * 0.5f) * 0.5f,
                     wallCenterY, partitionZ},
                 {partitionRightWidth, wallHeight, wallThickness});
-            addWall(scene, cubeMesh, wallMaterial,
+            addWall(chunk, scene, cubeMesh, wallMaterial,
                 {center.x + options.entranceOffset, floorTop + (wallHeight + doorHeight) * 0.5f, partitionZ},
                 {interiorDoorWidth, wallHeight - doorHeight, wallThickness});
 
@@ -493,17 +496,17 @@ namespace Duma3D::Demos::Demo_1
             {
                 const float sideX = center.x + side * (width * 0.5f - wallThickness * 0.5f);
                 const float windowCenterY = floorTop + (windowBottom + windowTop) * 0.5f;
-                addWall(scene, cubeMesh, wallMaterial,
+                addWall(chunk, scene, cubeMesh, wallMaterial,
                     {sideX, floorTop + windowBottom * 0.5f, center.z},
                     {wallThickness, windowBottom, depth});
-                addWall(scene, cubeMesh, wallMaterial,
+                addWall(chunk, scene, cubeMesh, wallMaterial,
                     {sideX, floorTop + (wallHeight + windowTop) * 0.5f, center.z},
                     {wallThickness, wallHeight - windowTop, depth});
-                addWall(scene, cubeMesh, wallMaterial,
+                addWall(chunk, scene, cubeMesh, wallMaterial,
                     {sideX, windowCenterY,
                         (center.z - depth * 0.5f + windowCenterZ - windowWidth * 0.5f) * 0.5f},
                     {wallThickness, windowTop - windowBottom, rearWindowSegmentLength});
-                addWall(scene, cubeMesh, wallMaterial,
+                addWall(chunk, scene, cubeMesh, wallMaterial,
                     {sideX, windowCenterY,
                         (windowCenterZ + windowWidth * 0.5f + center.z + depth * 0.5f) * 0.5f},
                     {wallThickness, windowTop - windowBottom, frontWindowSegmentLength});
@@ -536,7 +539,7 @@ namespace Duma3D::Demos::Demo_1
                 addBox(scene, cubeMesh, roofMaterial,
                     {center.x + width * 0.5f, wallTop + 0.2f + parapetHeight * 0.5f, center.z},
                     {wallThickness, parapetHeight, depth});
-                scene.addBoxCollider(
+                chunk.addBoxCollider(
                     {center.x, wallTop + 0.3f, center.z},
                     {width + 0.4f, 0.8f, depth + 0.4f}
                 );
@@ -554,7 +557,7 @@ namespace Duma3D::Demos::Demo_1
                 addBox(scene, cubeMesh, roofMaterial,
                     {center.x + width * 0.25f, roofCenterY, center.z},
                     {roofPanelLength, 0.18f, depth + 0.4f}, {0.0f, 0.0f, -roofAngle});
-                scene.addBoxCollider(
+                chunk.addBoxCollider(
                     {center.x, wallTop + roofPeakHeight * 0.5f, center.z},
                     {width + 0.4f, roofPeakHeight + 0.2f, depth + 0.4f}
                 );
@@ -594,9 +597,10 @@ namespace Duma3D::Demos::Demo_1
 
     namespace
     {
-    Scene makeDemoChunk(int chunkX, int chunkZ, std::uint32_t worldSeed, bool decorate)
+    ChunkData makeDemoChunk(int chunkX, int chunkZ, std::uint32_t worldSeed, bool decorate)
     {
-        Scene scene;
+        ChunkData chunk;
+        Scene& scene = chunk.graphics;
         const float originX = static_cast<float>(chunkX) * worldChunkSize;
         const float originZ = static_cast<float>(chunkZ) * worldChunkSize;
         std::mt19937 generator(makeChunkSeed(worldSeed, chunkX, chunkZ));
@@ -636,7 +640,7 @@ namespace Duma3D::Demos::Demo_1
 
         scene.addObject(ground, groundMaterial);
         if (!decorate)
-            return scene;
+            return chunk;
         std::array<Math::Vec3, 6> shuffledRoomLights = roomLightPalette;
         std::shuffle(shuffledRoomLights.begin(), shuffledRoomLights.end(), generator);
         std::uniform_int_distribution<std::size_t> styleChoice(0, wallMaterials.size() - 1);
@@ -674,7 +678,7 @@ namespace Duma3D::Demos::Demo_1
                 ? 0
                 : scene.addMesh(makeGables(options.width, options.roofPeakHeight, options.depth));
             addHouse(
-                scene, cube, gable,
+                chunk, scene, cube, gable,
                 wallMaterials[styleChoice(generator)], floor,
                 roofMaterials[styleChoice(generator)], trim,
                 houseCenters[houseIndex],
@@ -872,11 +876,11 @@ namespace Duma3D::Demos::Demo_1
                 {{0.0f, terrainHeight(0.0f, 3.0f, originX, originZ, worldSeed) + 0.9f, 3.0f},
                     {-15.0f, -28.0f, 6.0f}, {0.9f, 0.9f, 0.9f}});
         }
-        return scene;
+        return chunk;
     }
     }
 
-    Scene generateDemoChunk(Engine::World::ChunkCoordinate coordinate, std::uint32_t seed)
+    ChunkData generateDemoChunk(Engine::Game::World::ChunkCoordinate coordinate, std::uint32_t seed)
     {
         // World features are deterministic for a coordinate and world seed, even
         // after the engine unloads and later regenerates this chunk.

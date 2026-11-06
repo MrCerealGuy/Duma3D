@@ -15,11 +15,12 @@ add_library(Duma3DEngine STATIC
     src/Engine/Assets/AssetPath.cpp
     src/Engine/Graphics/Camera.cpp
     src/Engine/Graphics/Renderer.cpp
+    src/Engine/Game/FirstPersonController.cpp
     src/Engine/Math/Math.cpp
-    src/Engine/Physics/CharacterController.cpp
-    src/Engine/Scene/Mesh.cpp
-    src/Engine/Scene/Scene.cpp
-    src/Engine/World/ChunkWorld.cpp
+    src/Engine/Game/Physics/CharacterController.cpp
+    src/Engine/Graphics/Scene/Mesh.cpp
+    src/Engine/Graphics/Scene/Scene.cpp
+    src/Engine/Game/World/ChunkWorld.cpp
 )
 
 target_include_directories(Duma3DEngine

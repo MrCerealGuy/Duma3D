@@ -483,7 +483,7 @@ namespace
         return key;
     }
 
-    std::uint64_t meshCacheKey(const Engine::Scene::Mesh& mesh)
+    std::uint64_t meshCacheKey(const Engine::Graphics::Scene::Mesh& mesh)
     {
         std::uint64_t hash = 14695981039346656037ull;
         const auto addByte = [&hash](std::uint8_t value)
@@ -515,7 +515,7 @@ namespace
         };
 
         addSize(mesh.vertices.size());
-        for (const Engine::Scene::Vertex& vertex : mesh.vertices)
+        for (const Engine::Graphics::Scene::Vertex& vertex : mesh.vertices)
         {
             addVec3(vertex.position);
             addVec3(vertex.normal);
@@ -529,7 +529,7 @@ namespace
         for (const std::uint32_t index : mesh.indices)
             addSize(index);
         addSize(mesh.sections.size());
-        for (const Engine::Scene::MeshSection& section : mesh.sections)
+        for (const Engine::Graphics::Scene::MeshSection& section : mesh.sections)
         {
             addSize(section.firstIndex);
             addSize(section.indexCount);

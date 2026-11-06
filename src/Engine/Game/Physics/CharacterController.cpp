@@ -1,10 +1,10 @@
-#include "Engine/Physics/CharacterController.hpp"
+#include "Engine/Game/Physics/CharacterController.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
-namespace Engine::Physics
+namespace Engine::Game::Physics
 {
     CharacterController::CharacterController(CharacterControllerConfig config)
         : m_config(config)
@@ -18,11 +18,11 @@ namespace Engine::Physics
             throw std::invalid_argument("CharacterController received an invalid configuration");
     }
 
-    bool CharacterController::collidesWithScene(const Scene::Scene& scene, Math::Vec3 position) const
+    bool CharacterController::collidesWithWorld(const std::vector<Collision::Box>& colliders, Math::Vec3 position) const
     {
         const float feet = position.y - m_config.eyeHeight;
         const float head = feet + m_config.height;
-        for (const Scene::CollisionBox& box : scene.colliders())
+        for (const Collision::Box& box : colliders)
         {
             if (head <= box.minimum.y || feet >= box.maximum.y)
                 continue;
@@ -38,7 +38,7 @@ namespace Engine::Physics
     }
 
     void CharacterController::update(
-        const Scene::Scene& scene,
+        const std::vector<Collision::Box>& colliders,
         Graphics::Camera& camera,
         float forwardDistance,
         float rightDistance,
@@ -52,12 +52,12 @@ namespace Engine::Physics
 
         const Math::Vec3 startingPosition = camera.position();
         camera.moveOnGround(forwardDistance, 0.0f);
-        if (collidesWithScene(scene, camera.position()))
+        if (collidesWithWorld(colliders, camera.position()))
             camera.setPosition(startingPosition);
 
         const Math::Vec3 afterForward = camera.position();
         camera.moveOnGround(0.0f, rightDistance);
-        if (collidesWithScene(scene, camera.position()))
+        if (collidesWithWorld(colliders, camera.position()))
             camera.setPosition(afterForward);
 
         Math::Vec3 position = camera.position();
@@ -72,7 +72,7 @@ namespace Engine::Physics
         bool hitCeiling = false;
         if (m_verticalVelocity > 0.0f)
         {
-            for (const Scene::CollisionBox& box : scene.colliders())
+            for (const Collision::Box& box : colliders)
             {
                 const float closestX = std::clamp(position.x, box.minimum.x, box.maximum.x);
                 const float closestZ = std::clamp(position.z, box.minimum.z, box.maximum.z);

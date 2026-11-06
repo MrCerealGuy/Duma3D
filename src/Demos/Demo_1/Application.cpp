@@ -204,35 +204,18 @@ void Application::destroyOpenGL()
 
 void Application::update(float dt)
 {
-    const float baseSpeed = keys_[VK_SHIFT] ? 6.0f : 3.0f;
-    const float speed = baseSpeed * dt;
-    if (!gravityMode_)
-    {
-        if (keys_['W']) camera_.moveForward(speed);
-        if (keys_['S']) camera_.moveForward(-speed);
-        if (keys_['D']) camera_.moveRight(speed);
-        if (keys_['A']) camera_.moveRight(-speed);
-        if (keys_[VK_SPACE]) camera_.moveUp(speed);
-        if (keys_[VK_CONTROL]) camera_.moveUp(-speed);
-        return;
-    }
-
-    float forward = static_cast<float>(keys_['W']) - static_cast<float>(keys_['S']);
-    float right = static_cast<float>(keys_['D']) - static_cast<float>(keys_['A']);
-    const float inputLength = std::sqrt(forward * forward + right * right);
-    if (inputLength > 1.0f)
-    {
-        forward /= inputLength;
-        right /= inputLength;
-    }
-
-    const Engine::Physics::GroundHeightSampler sampleGroundHeight = [this](float x, float z)
+    const Engine::Game::Physics::GroundHeightSampler sampleGroundHeight = [this](float x, float z)
     {
         return Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(x, z, world_.config().seed);
     };
-    characterController_.update(
-        scene_, camera_, forward * speed, right * speed, dt, jumpRequested_, sampleGroundHeight
-    );
+    const Engine::Game::FirstPersonInput input{
+        static_cast<float>(keys_['W']) - static_cast<float>(keys_['S']),
+        static_cast<float>(keys_['D']) - static_cast<float>(keys_['A']),
+        static_cast<float>(keys_[VK_SPACE]) - static_cast<float>(keys_[VK_CONTROL]),
+        keys_[VK_SHIFT],
+        jumpRequested_
+    };
+    playerController_.update(world_.colliders(), camera_, input, dt, sampleGroundHeight);
     jumpRequested_ = false;
 }
 
@@ -242,7 +225,7 @@ void Application::updateWorldChunks()
     if (!world_.updateForPosition(position.x, position.z))
         return;
 
-    const Engine::Scene::Scene& nextScene = world_.scene();
+    const Engine::Graphics::Scene::Scene& nextScene = world_.scene();
     if (!renderer_.updateScene(nextScene))
     {
         OutputDebugStringW(L"Duma3D: Chunk-Szene konnte nicht an die GPU übertragen werden.\n");
@@ -254,18 +237,12 @@ void Application::updateWorldChunks()
 
 void Application::toggleMovementMode()
 {
-    gravityMode_ = !gravityMode_;
-    characterController_.resetVerticalVelocity();
-    jumpRequested_ = false;
-    if (gravityMode_)
+    const Engine::Game::Physics::GroundHeightSampler sampleGroundHeight = [this](float x, float z)
     {
-        const Engine::Physics::GroundHeightSampler sampleGroundHeight = [this](float x, float z)
-        {
-            return Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(x, z, world_.config().seed);
-        };
-        characterController_.placeOnGround(camera_, sampleGroundHeight);
-    }
-
+        return Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(x, z, world_.config().seed);
+    };
+    playerController_.toggleMode(camera_, sampleGroundHeight);
+    jumpRequested_ = false;
     updateHud();
 }
 
@@ -273,12 +250,13 @@ void Application::updateHud()
 {
     if (!hwnd_)
         return;
-    const wchar_t* mode = gravityMode_ ? L"Laufmodus" : L"Flugmodus";
+    const bool walkMode = playerController_.mode() == Engine::Game::MovementMode::Walk;
+    const wchar_t* mode = walkMode ? L"Laufmodus" : L"Flugmodus";
     const std::wstring modeTitle = title_ + L" [" + mode + L"]";
     SetWindowTextW(hwnd_, modeTitle.c_str());
     if (hudHwnd_)
     {
-        const wchar_t* movement = gravityMode_
+        const wchar_t* movement = walkMode
             ? L"[Leertaste] Springen"
             : L"[Leertaste] Steigen  [Strg] Sinken";
         std::wstring legend = L"Duma3D  |  " + std::wstring(mode) +
@@ -310,7 +288,7 @@ void Application::handleKeyDown(WPARAM key)
         keys_[key] = true;
     if (key == 'G' && !wasDown)
         toggleMovementMode();
-    if (key == VK_SPACE && !wasDown && gravityMode_)
+    if (key == VK_SPACE && !wasDown && playerController_.mode() == Engine::Game::MovementMode::Walk)
         jumpRequested_ = true;
     if (key == VK_ESCAPE)
         running_ = false;
@@ -372,11 +350,11 @@ int Application::run()
         return 1;
     }
 
-    const Engine::Physics::GroundHeightSampler sampleGroundHeight = [this](float x, float z)
+    const Engine::Game::Physics::GroundHeightSampler sampleGroundHeight = [this](float x, float z)
     {
         return Duma3D::Demos::Demo_1::sampleDemoTerrainHeight(x, z, world_.config().seed);
     };
-    characterController_.placeOnGround(camera_, sampleGroundHeight);
+    playerController_.placeOnGround(camera_, sampleGroundHeight);
     updateHud();
 
     ShowWindow(hwnd_, SW_SHOWMAXIMIZED);

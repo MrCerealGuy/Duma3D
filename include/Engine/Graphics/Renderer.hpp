@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Engine/Graphics/Camera.hpp"
-#include "Engine/Scene/Scene.hpp"
+#include "Engine/Graphics/Scene/Scene.hpp"
 
 #include <windows.h>
 

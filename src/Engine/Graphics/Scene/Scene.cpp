@@ -1,9 +1,9 @@
-#include "Engine/Scene/Scene.hpp"
+#include "Engine/Graphics/Scene/Scene.hpp"
 
 #include <cmath>
 #include <utility>
 
-namespace Engine::Scene
+namespace Engine::Graphics::Scene
 {
     std::size_t Scene::addMesh(Mesh mesh)
     {
@@ -41,19 +41,5 @@ namespace Engine::Scene
         m_objects.push_back({meshIndex, materialIndex, transform});
         return true;
     }
-
-    void Scene::addBoxCollider(Math::Vec3 center, Math::Vec3 size)
-    {
-        const Math::Vec3 halfSize{
-            std::abs(size.x) * 0.5f,
-            std::abs(size.y) * 0.5f,
-            std::abs(size.z) * 0.5f
-        };
-        m_colliders.push_back({
-            {center.x - halfSize.x, center.y - halfSize.y, center.z - halfSize.z},
-            {center.x + halfSize.x, center.y + halfSize.y, center.z + halfSize.z}
-        });
-    }
-
 
 }

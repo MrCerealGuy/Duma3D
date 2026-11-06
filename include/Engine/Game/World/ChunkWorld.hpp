@@ -1,13 +1,13 @@
 #pragma once
 
-#include "Engine/Scene/Scene.hpp"
+#include "Engine/Game/World/ChunkData.hpp"
 
 #include <cstdint>
 #include <functional>
 #include <map>
 #include <utility>
 
-namespace Engine::World
+namespace Engine::Game::World
 {
     inline constexpr float defaultChunkSize = 64.0f;
 
@@ -26,7 +26,7 @@ namespace Engine::World
         std::uint32_t seed = 0;
     };
 
-    using ChunkGenerator = std::function<Scene::Scene(ChunkCoordinate, std::uint32_t)>;
+    using ChunkGenerator = std::function<ChunkData(ChunkCoordinate, std::uint32_t)>;
 
     // Keeps a square area of generated scene chunks around the supplied world position.
     // Chunk geometry and content are provided by the client through ChunkGenerator.
@@ -38,7 +38,8 @@ namespace Engine::World
         // Returns true when the center chunk changes and the loaded world scene is rebuilt.
         bool updateForPosition(float worldX, float worldZ);
 
-        const Scene::Scene& scene() const { return m_scene; }
+        const Graphics::Scene::Scene& scene() const { return m_chunkData.graphics; }
+        const std::vector<Collision::Box>& colliders() const { return m_chunkData.colliders; }
         ChunkCoordinate center() const { return m_center; }
         const ChunkWorldConfig& config() const { return m_config; }
 
@@ -51,8 +52,8 @@ namespace Engine::World
 
         ChunkWorldConfig m_config;
         ChunkGenerator m_generator;
-        std::map<ChunkKey, Scene::Scene> m_chunks;
-        Scene::Scene m_scene;
+        std::map<ChunkKey, ChunkData> m_chunks;
+        ChunkData m_chunkData;
         ChunkCoordinate m_center{};
         bool m_hasCenter = false;
     };

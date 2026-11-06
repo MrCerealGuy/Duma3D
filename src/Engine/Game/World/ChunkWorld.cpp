@@ -1,4 +1,4 @@
-#include "Engine/World/ChunkWorld.hpp"
+#include "Engine/Game/World/ChunkWorld.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 
-namespace Engine::World
+namespace Engine::Game::World
 {
     ChunkWorld::ChunkWorld(ChunkWorldConfig config, ChunkGenerator generator)
         : m_config(config), m_generator(std::move(generator))
@@ -63,7 +63,7 @@ namespace Engine::World
 
     void ChunkWorld::rebuildScene()
     {
-        std::vector<const std::pair<const ChunkKey, Scene::Scene>*> orderedChunks;
+        std::vector<const std::pair<const ChunkKey, ChunkData>*> orderedChunks;
         orderedChunks.reserve(m_chunks.size());
         for (const auto& chunk : m_chunks)
             orderedChunks.push_back(&chunk);
@@ -76,52 +76,45 @@ namespace Engine::World
             return distanceA < distanceB;
         });
 
-        Scene::Scene combined;
+        ChunkData combined;
         for (const auto* chunkEntry : orderedChunks)
         {
             const auto& [x, z] = chunkEntry->first;
-            const Scene::Scene& chunk = chunkEntry->second;
+            const ChunkData& chunk = chunkEntry->second;
             const float offsetX = static_cast<float>(x) * m_config.chunkSize;
             const float offsetZ = static_cast<float>(z) * m_config.chunkSize;
             std::vector<std::size_t> meshIndices;
             std::vector<std::size_t> materialIndices;
-            meshIndices.reserve(chunk.meshes().size());
-            materialIndices.reserve(chunk.materials().size());
-            for (const Scene::Material& material : chunk.materials())
-                materialIndices.push_back(combined.addMaterial(material));
-            for (const Scene::Mesh& mesh : chunk.meshes())
-                meshIndices.push_back(combined.addMesh(mesh));
-            for (const Scene::MeshInstance& object : chunk.objects())
+            meshIndices.reserve(chunk.graphics.meshes().size());
+            materialIndices.reserve(chunk.graphics.materials().size());
+            for (const Graphics::Scene::Material& material : chunk.graphics.materials())
+                materialIndices.push_back(combined.graphics.addMaterial(material));
+            for (const Graphics::Scene::Mesh& mesh : chunk.graphics.meshes())
+                meshIndices.push_back(combined.graphics.addMesh(mesh));
+            for (const Graphics::Scene::MeshInstance& object : chunk.graphics.objects())
             {
                 if (object.meshIndex >= meshIndices.size() || object.materialIndex >= materialIndices.size())
                     continue;
-                Scene::Transform transform = object.transform;
+                Graphics::Scene::Transform transform = object.transform;
                 transform.position.x += offsetX;
                 transform.position.z += offsetZ;
-                combined.addObject(meshIndices[object.meshIndex], materialIndices[object.materialIndex], transform);
+                combined.graphics.addObject(meshIndices[object.meshIndex], materialIndices[object.materialIndex], transform);
             }
-            for (const Scene::CollisionBox& collider : chunk.colliders())
+            for (const Collision::Box& collider : chunk.colliders)
             {
-                const Math::Vec3 center{
-                    (collider.minimum.x + collider.maximum.x) * 0.5f + offsetX,
-                    (collider.minimum.y + collider.maximum.y) * 0.5f,
-                    (collider.minimum.z + collider.maximum.z) * 0.5f + offsetZ
-                };
-                const Math::Vec3 size{
-                    collider.maximum.x - collider.minimum.x,
-                    collider.maximum.y - collider.minimum.y,
-                    collider.maximum.z - collider.minimum.z
-                };
-                combined.addBoxCollider(center, size);
+                combined.colliders.push_back({
+                    {collider.minimum.x + offsetX, collider.minimum.y, collider.minimum.z + offsetZ},
+                    {collider.maximum.x + offsetX, collider.maximum.y, collider.maximum.z + offsetZ}
+                });
             }
-            for (Scene::PointLight light : chunk.pointLights())
+            for (Graphics::Scene::PointLight light : chunk.graphics.pointLights())
             {
                 light.position.x += offsetX;
                 light.position.z += offsetZ;
-                if (!combined.addPointLight(light))
+                if (!combined.graphics.addPointLight(light))
                     break;
             }
         }
-        m_scene = std::move(combined);
+        m_chunkData = std::move(combined);
     }
 }

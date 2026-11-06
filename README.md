@@ -32,18 +32,22 @@ Duma3D/
 ├── include/Engine/
 │   ├── Assets/
 │   ├── Graphics/
+│   │   └── Scene/
 │   ├── Math/
-│   ├── Physics/
-│   ├── Scene/
-│   └── World/
+│   └── Game/
+│       ├── Collision/
+│       ├── Physics/
+│       └── World/
 ├── src/
 │   ├── Engine/
 │   │   ├── Assets/
 │   │   ├── Graphics/
+│   │   │   └── Scene/
 │   │   ├── Math/
-│   │   ├── Physics/
-│   │   ├── Scene/
-│   │   └── World/
+│   │   ├── Game/
+│   │   │   ├── FirstPersonController.cpp
+│   │   │   ├── Physics/
+│   │   │   └── World/
 │   └── Demos/
 │       └── Demo_1/
 ├── BUILDING.md

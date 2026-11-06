@@ -1,9 +1,9 @@
 #pragma once
 
 #include "Engine/Graphics/Renderer.hpp"
-#include "Engine/Physics/CharacterController.hpp"
-#include "Engine/Scene/Scene.hpp"
-#include "Engine/World/ChunkWorld.hpp"
+#include "Engine/Game/FirstPersonController.hpp"
+#include "Engine/Graphics/Scene/Scene.hpp"
+#include "Engine/Game/World/ChunkWorld.hpp"
 
 #include <windows.h>
 #include <string>
@@ -41,12 +41,11 @@ private:
     std::wstring title_;
 
     bool running_ = true;
-    bool gravityMode_ = true;
     bool jumpRequested_ = false;
     bool keys_[256]{};
     Engine::Graphics::Camera camera_{{0.0f, 1.7f, 9.0f}};
-    Engine::Physics::CharacterController characterController_;
+    Engine::Game::FirstPersonController playerController_;
     Engine::Graphics::Renderer renderer_;
-    Engine::World::ChunkWorld world_;
-    Engine::Scene::Scene scene_;
+    Engine::Game::World::ChunkWorld world_;
+    Engine::Graphics::Scene::Scene scene_;
 };

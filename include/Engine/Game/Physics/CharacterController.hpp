@@ -1,11 +1,12 @@
 #pragma once
 
 #include "Engine/Graphics/Camera.hpp"
-#include "Engine/Scene/Scene.hpp"
+#include "Engine/Game/Collision/CollisionBox.hpp"
 
 #include <functional>
+#include <vector>
 
-namespace Engine::Physics
+namespace Engine::Game::Physics
 {
     struct CharacterControllerConfig
     {
@@ -25,7 +26,7 @@ namespace Engine::Physics
         explicit CharacterController(CharacterControllerConfig config = {});
 
         void update(
-            const Scene::Scene& scene,
+            const std::vector<Collision::Box>& colliders,
             Graphics::Camera& camera,
             float forwardDistance,
             float rightDistance,
@@ -38,7 +39,7 @@ namespace Engine::Physics
         void resetVerticalVelocity() { m_verticalVelocity = 0.0f; }
 
     private:
-        bool collidesWithScene(const Scene::Scene& scene, Math::Vec3 position) const;
+        bool collidesWithWorld(const std::vector<Collision::Box>& colliders, Math::Vec3 position) const;
 
         CharacterControllerConfig m_config;
         float m_verticalVelocity = 0.0f;

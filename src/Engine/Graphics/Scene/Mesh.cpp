@@ -1,4 +1,4 @@
-#include "Engine/Scene/Mesh.hpp"
+#include "Engine/Graphics/Scene/Mesh.hpp"
 #include "Engine/Assets/AssetPath.hpp"
 
 #include <algorithm>
@@ -236,7 +236,7 @@ namespace
 
 }
 
-namespace Engine::Scene
+namespace Engine::Graphics::Scene
 {
     Mesh Mesh::cube()
     {

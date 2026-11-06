@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace Engine::Scene
+namespace Engine::Graphics::Scene
 {
     struct MeshSection
     {
