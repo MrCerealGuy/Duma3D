@@ -4,15 +4,27 @@
 
 #include <functional>
 #include <string>
+#include <string>
 #include <vector>
 
 namespace Engine::Game
 {
+    enum class InteractionSound
+    {
+        None,
+        DoorOpen,
+        DoorClose,
+        Switch,
+        Teleporter,
+        Denied
+    };
+
     struct InteractionResult
     {
         bool activated = false;
         bool worldChanged = false;
         std::wstring message;
+        InteractionSound sound = InteractionSound::None;
     };
 
     struct Interactable

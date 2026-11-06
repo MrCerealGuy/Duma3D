@@ -51,3 +51,15 @@ build\GenerateDemoTextures.exe assets\textures
 ```
 
 Rebuild `Duma3D` afterward to copy the updated textures to `build\assets`.
+
+## Regenerate Demo 2 sounds
+
+The WAV effects and machinery ambience are synthesized reproducibly by the included utility:
+
+```bat
+cmake --build build --target GenerateDemoAudio
+build\GenerateDemoAudio.exe assets\audio
+cmake --build build --target Duma3D_Demo_2
+```
+
+The generated files are copied beside the Demo_2 executable during its build.

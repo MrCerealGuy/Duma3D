@@ -13,6 +13,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # outside this target so other demos can link the same engine library.
 add_library(Duma3DEngine STATIC
     src/Engine/Assets/AssetPath.cpp
+    src/Engine/Audio/AudioPlayer.cpp
     src/Engine/Graphics/Camera.cpp
     src/Engine/Graphics/Renderer.cpp
     src/Engine/Game/FirstPersonController.cpp
@@ -41,6 +42,10 @@ add_executable(Duma3D_Demo_2
     src/Demos/Demo_2/DemoScene.cpp
 )
 
+add_executable(GenerateDemoAudio EXCLUDE_FROM_ALL
+    tools/GenerateDemoAudio.cpp
+)
+
 target_include_directories(Duma3D PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Demos/Demo_1
 )
@@ -58,6 +63,7 @@ if(WIN32)
         shell32
         ole32
         windowscodecs
+        winmm
     )
 
     target_link_options(Duma3D PRIVATE -mconsole)
@@ -65,6 +71,7 @@ if(WIN32)
     if(MINGW)
         target_link_options(Duma3D PRIVATE -static -static-libgcc -static-libstdc++)
         target_link_options(Duma3D_Demo_2 PRIVATE -static -static-libgcc -static-libstdc++)
+        target_link_options(GenerateDemoAudio PRIVATE -static -static-libgcc -static-libstdc++)
     endif()
 endif()
 

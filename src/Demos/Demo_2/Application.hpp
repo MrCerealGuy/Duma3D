@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DemoScene.hpp"
+#include "Engine/Audio/AudioPlayer.hpp"
 #include "Engine/Game/FirstPersonController.hpp"
 #include "Engine/Graphics/Renderer.hpp"
 
@@ -41,6 +42,7 @@ namespace Duma3D::Demos::Demo_2
         std::wstring title_;
         bool running_ = true;
         bool jumpRequested_ = false;
+        bool lampSputtering_ = false;
         float elapsedTime_ = 0.0f;
         bool keys_[256]{};
         Engine::Graphics::Camera camera_{{0.0f, 1.7f, 0.0f}};
@@ -49,6 +51,7 @@ namespace Duma3D::Demos::Demo_2
         LevelState levelState_;
         Engine::Game::World::ChunkData level_;
         Engine::Graphics::Renderer renderer_;
+        Engine::Audio::AudioPlayer audio_;
         std::wstring statusMessage_ = L"Relais in der Relaiskammer aktivieren";
     };
 }

@@ -165,9 +165,13 @@ namespace Duma3D::Demos::Demo_2
     void Application::update(float dt)
     {
         elapsedTime_ += dt;
+        audio_.update(dt);
         if (advanceDoors(levelState_, dt))
             rebuildLevel();
-        updateLampFlicker(level_.graphics, elapsedTime_);
+        const bool sputtering = updateLampFlicker(level_.graphics, elapsedTime_);
+        if (sputtering && !lampSputtering_)
+            audio_.play("assets/audio/lamp_flicker.wav", Engine::Audio::Priority::Flicker);
+        lampSputtering_ = sputtering;
 
         const Engine::Game::Physics::GroundHeightSampler ground = [](float, float) { return 0.0f; };
         const Engine::Game::FirstPersonInput input{
@@ -228,6 +232,26 @@ namespace Duma3D::Demos::Demo_2
             {
                 statusMessage_ = result.message;
                 if (result.worldChanged) rebuildLevel();
+                switch (result.sound)
+                {
+                    case Engine::Game::InteractionSound::DoorOpen:
+                        audio_.play("assets/audio/door_open.wav", Engine::Audio::Priority::Door);
+                        break;
+                    case Engine::Game::InteractionSound::DoorClose:
+                        audio_.play("assets/audio/door_close.wav", Engine::Audio::Priority::Door);
+                        break;
+                    case Engine::Game::InteractionSound::Switch:
+                        audio_.play("assets/audio/relay_switch.wav", Engine::Audio::Priority::Switch);
+                        break;
+                    case Engine::Game::InteractionSound::Teleporter:
+                        audio_.play("assets/audio/teleporter.wav", Engine::Audio::Priority::Teleporter);
+                        break;
+                    case Engine::Game::InteractionSound::Denied:
+                        audio_.play("assets/audio/access_denied.wav", Engine::Audio::Priority::Alert);
+                        break;
+                    case Engine::Game::InteractionSound::None:
+                        break;
+                }
             }
             else
                 statusMessage_ = L"Nichts in Reichweite";
@@ -280,6 +304,8 @@ namespace Duma3D::Demos::Demo_2
                 L"Duma3D Demo 2", MB_ICONERROR);
             return 1;
         }
+        if (!audio_.loop("assets/audio/sector_ambience.wav"))
+            OutputDebugStringW(L"Duma3D Demo 2: Maschinenraum-Ambience konnte nicht gestartet werden.\n");
         ShowWindow(hwnd_, SW_SHOWMAXIMIZED);
         UpdateWindow(hwnd_);
         ShowCursor(FALSE);

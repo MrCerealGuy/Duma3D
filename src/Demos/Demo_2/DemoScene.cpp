@@ -227,10 +227,11 @@ namespace Duma3D::Demos::Demo_2
             interactions.add({doorPositions[index], 3.2f, L"[E] Tür öffnen / schließen", [&state, index]()
             {
                 if (index == 1 && !state.powerOn)
-                    return Game::InteractionResult{true, false, L"Sicherheitstor ohne Strom"};
+                    return Game::InteractionResult{true, false, L"Sicherheitstor ohne Strom", Game::InteractionSound::Denied};
                 state.doorsOpen[index] = !state.doorsOpen[index];
                 return Game::InteractionResult{true, true,
-                    state.doorsOpen[index] ? L"Tür fährt langsam auf" : L"Tür fährt langsam zu"};
+                    state.doorsOpen[index] ? L"Tür fährt langsam auf" : L"Tür fährt langsam zu",
+                    state.doorsOpen[index] ? Game::InteractionSound::DoorOpen : Game::InteractionSound::DoorClose};
             }});
         }
         interactions.add({{-2.0f, 1.4f, -18.1f}, 2.8f, L"[E] RELAIS / Stromversorgung", [&state]()
@@ -239,21 +240,22 @@ namespace Duma3D::Demos::Demo_2
             if (!state.powerOn)
                 state.doorsOpen[1] = false;
             return Game::InteractionResult{true, true,
-                state.powerOn ? L"Stromversorgung aktiv" : L"Stromversorgung getrennt"};
+                state.powerOn ? L"Stromversorgung aktiv" : L"Stromversorgung getrennt",
+                Game::InteractionSound::Switch};
         }});
         interactions.add({{28.0f, 0.8f, -14.0f}, 3.0f, L"[E] Teleporter benutzen", [&state, &camera]()
         {
             if (!state.powerOn)
-                return Game::InteractionResult{true, false, L"Teleporter ohne Energie"};
+                return Game::InteractionResult{true, false, L"Teleporter ohne Energie", Game::InteractionSound::Denied};
             camera.setPosition({0.0f, 1.7f, -12.0f});
-            return Game::InteractionResult{true, false, L"Teleporter: Relaiskammer"};
+            return Game::InteractionResult{true, false, L"Teleporter: Relaiskammer", Game::InteractionSound::Teleporter};
         }});
         interactions.add({{0.0f, 0.8f, -14.0f}, 3.0f, L"[E] Teleporter benutzen", [&state, &camera]()
         {
             if (!state.powerOn)
-                return Game::InteractionResult{true, false, L"Teleporter ohne Energie"};
+                return Game::InteractionResult{true, false, L"Teleporter ohne Energie", Game::InteractionSound::Denied};
             camera.setPosition({28.0f, 1.7f, -12.0f});
-            return Game::InteractionResult{true, false, L"Teleporter: Kernkammer"};
+            return Game::InteractionResult{true, false, L"Teleporter: Kernkammer", Game::InteractionSound::Teleporter};
         }});
     }
 
@@ -275,7 +277,7 @@ namespace Duma3D::Demos::Demo_2
         return changed;
     }
 
-    void updateLampFlicker(GraphicsScene::Scene& scene, float elapsedTime)
+    bool updateLampFlicker(GraphicsScene::Scene& scene, float elapsedTime)
     {
         const float pulse = 0.78f + 0.22f * std::abs(std::sin(elapsedTime * 3.1f));
         const float irregular = std::sin(elapsedTime * 8.7f + 0.7f) * std::sin(elapsedTime * 2.4f);
@@ -286,5 +288,6 @@ namespace Duma3D::Demos::Demo_2
         scene.setPointLightIntensity(1, hallwayLamp);
         scene.setPointLightIntensity(3, furnaceLamp);
         scene.setPointLightIntensity(5, deadBulbSputter ? 0.48f : 0.0f);
+        return deadBulbSputter;
     }
 }

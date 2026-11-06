@@ -16,7 +16,7 @@ namespace Duma3D::Demos::Demo_2
 
     Engine::Game::World::ChunkData generateLevel(const LevelState& state);
     bool advanceDoors(LevelState& state, float deltaTime);
-    void updateLampFlicker(Engine::Graphics::Scene::Scene& scene, float elapsedTime);
+    bool updateLampFlicker(Engine::Graphics::Scene::Scene& scene, float elapsedTime);
     void registerInteractions(Engine::Game::InteractionSystem& interactions, LevelState& state,
         Engine::Graphics::Camera& camera);
 }
