@@ -15,10 +15,10 @@ uniform vec3 uLightColor;
 uniform vec3 uAmbientColor;
 uniform vec3 uCameraPosition;
 uniform int uPointLightCount;
-uniform vec3 uPointLightPositions[4];
-uniform vec3 uPointLightColors[4];
-uniform float uPointLightIntensities[4];
-uniform vec3 uPointLightAttenuations[4];
+uniform vec3 uPointLightPositions[16];
+uniform vec3 uPointLightColors[16];
+uniform float uPointLightIntensities[16];
+uniform vec3 uPointLightAttenuations[16];
 out vec4 FragColor;
 vec3 linearToSrgb(vec3 color) {
     color = max(color, vec3(0.0));

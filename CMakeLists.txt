@@ -16,6 +16,7 @@ add_library(Duma3DEngine STATIC
     src/Engine/Graphics/Camera.cpp
     src/Engine/Graphics/Renderer.cpp
     src/Engine/Game/FirstPersonController.cpp
+    src/Engine/Game/InteractionSystem.cpp
     src/Engine/Math/Math.cpp
     src/Engine/Game/Physics/CharacterController.cpp
     src/Engine/Graphics/Scene/Mesh.cpp
@@ -34,10 +35,20 @@ add_executable(Duma3D
     src/Demos/Demo_1/DemoScene.cpp
 )
 
+add_executable(Duma3D_Demo_2
+    src/Demos/Demo_2/main.cpp
+    src/Demos/Demo_2/Application.cpp
+    src/Demos/Demo_2/DemoScene.cpp
+)
+
 target_include_directories(Duma3D PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Demos/Demo_1
 )
 target_link_libraries(Duma3D PRIVATE Duma3DEngine)
+target_include_directories(Duma3D_Demo_2 PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Demos/Demo_2
+)
+target_link_libraries(Duma3D_Demo_2 PRIVATE Duma3DEngine)
 
 if(WIN32)
     target_link_libraries(Duma3DEngine PUBLIC
@@ -50,8 +61,10 @@ if(WIN32)
     )
 
     target_link_options(Duma3D PRIVATE -mconsole)
+    target_link_options(Duma3D_Demo_2 PRIVATE -mconsole)
     if(MINGW)
         target_link_options(Duma3D PRIVATE -static -static-libgcc -static-libstdc++)
+        target_link_options(Duma3D_Demo_2 PRIVATE -static -static-libgcc -static-libstdc++)
     endif()
 endif()
 
@@ -61,19 +74,22 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
         CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/assets/*"
     )
-    set_property(TARGET Duma3D APPEND PROPERTY LINK_DEPENDS ${DUMA3D_ASSET_FILES})
-
-    add_custom_command(TARGET Duma3D POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_CURRENT_SOURCE_DIR}/assets"
-            "$<TARGET_FILE_DIR:Duma3D>/assets"
-    )
+    foreach(DEMO_TARGET Duma3D Duma3D_Demo_2)
+        set_property(TARGET ${DEMO_TARGET} APPEND PROPERTY LINK_DEPENDS ${DUMA3D_ASSET_FILES})
+        add_custom_command(TARGET ${DEMO_TARGET} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+                "$<TARGET_FILE_DIR:${DEMO_TARGET}>/assets"
+        )
+    endforeach()
 endif()
 
 if(MSVC)
     target_compile_options(Duma3DEngine PRIVATE /W4)
     target_compile_options(Duma3D PRIVATE /W4)
+    target_compile_options(Duma3D_Demo_2 PRIVATE /W4)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_compile_options(Duma3DEngine PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Duma3D PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(Duma3D_Demo_2 PRIVATE -Wall -Wextra -Wpedantic)
 endif()

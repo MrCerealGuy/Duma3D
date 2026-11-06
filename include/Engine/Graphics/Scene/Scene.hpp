@@ -48,12 +48,13 @@ namespace Engine::Graphics::Scene
     class Scene
     {
     public:
-        static constexpr std::size_t maximumPointLights = 4;
+        static constexpr std::size_t maximumPointLights = 16;
 
         std::size_t addMesh(Mesh mesh);
         std::size_t addMaterial(Material material);
         bool addPointLight(PointLight light);
         bool addObject(std::size_t meshIndex, std::size_t materialIndex, Transform transform = {});
+        void setDirectionalLight(DirectionalLight light) { m_directionalLight = light; }
 
         const std::vector<Mesh>& meshes() const { return m_meshes; }
         const std::vector<Material>& materials() const { return m_materials; }

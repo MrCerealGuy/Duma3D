@@ -17,7 +17,9 @@ Open `Duma3D.code-workspace` in VS Code. The workspace selects the `MinGW Makefi
 2. In **Run and Debug**, select **Duma3D (MinGW/GDB)**.
 3. Press **F5**. VS Code builds the `Duma3D` target and launches it with GDB.
 
-The build task is defined in `.vscode/tasks.json`, and the debugger configuration is in `.vscode/launch.json`. To build manually inside VS Code, choose **Terminal → Run Build Task** and select **build Duma3D**.
+To launch the enclosed Doom-inspired level, select **Duma3D Demo 2 (MinGW/GDB)** in **Run and Debug** and press **F5**. This builds and launches `Duma3D_Demo_2`.
+
+The build tasks are defined in `.vscode/tasks.json`, and the debugger configurations are in `.vscode/launch.json`. To build manually inside VS Code, choose **Terminal → Run Build Task** and select the target you want.
 
 The workspace configuration contains local paths for CMake, MinGW, and GDB. If these tools are installed elsewhere, update the paths in `Duma3D.code-workspace`, `.vscode/tasks.json`, and `.vscode/launch.json`.
 
@@ -30,7 +32,14 @@ cmake -S . -B build -G "MinGW Makefiles"
 cmake --build build
 ```
 
-Then run `build\Duma3D.exe`. CMake copies the assets to `build\assets` beside the executable. The application resolves asset paths relative to the executable, even when launched from another working directory.
+Run `build\Duma3D.exe` for Demo_1 or build and run Demo_2 with:
+
+```bat
+cmake --build build --target Duma3D_Demo_2
+build\Duma3D_Demo_2.exe
+```
+
+CMake copies the assets to `build\assets` beside each executable. Both applications resolve asset paths relative to their executable, even when launched from another working directory.
 
 ## Regenerate Demo 1 textures
 

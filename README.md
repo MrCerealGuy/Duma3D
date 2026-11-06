@@ -1,6 +1,6 @@
 # Duma3D
 
-Duma3D is an experimental 3D engine for Windows. The project builds the engine as a reusable library and includes `Demo_1`, a separate sample application showcasing rendering, textures, lighting, shadows, procedural worlds, and walkable interiors.
+Duma3D is an experimental 3D engine for Windows. The project builds the engine as a reusable library and includes separate demos. `Demo_1` showcases procedural terrain and walkable houses; `Demo_2` is an enclosed Doom-inspired level built from connected rooms and corridors, with lighting contrast, interactive doors, a power switch, and teleporters.
 
 See [BUILDING.md](BUILDING.md) for prerequisites and instructions to configure, build, and run the project from Visual Studio Code or the command line.
 
@@ -15,6 +15,15 @@ See [ENGINE_SPECIFICATIONS.md](ENGINE_SPECIFICATIONS.md) for the engine architec
 - **Flight mode:** **Space** / **Ctrl** move up / down
 - **Walking mode:** **Space** jumps; gravity, terrain, and house walls constrain movement
 - **Shift:** Move faster
+- **Esc:** Quit
+
+## Demo_2 controls
+
+- **WASD:** Walk
+- **Mouse:** Look around
+- **Shift:** Move faster
+- **Space:** Jump
+- **E:** Use the door, switch, or teleporter in front of you
 - **Esc:** Quit
 
 ## Repository structure
@@ -46,10 +55,12 @@ Duma3D/
 │   │   ├── Math/
 │   │   ├── Game/
 │   │   │   ├── FirstPersonController.cpp
+│   │   │   ├── InteractionSystem.cpp
 │   │   │   ├── Physics/
 │   │   │   └── World/
 │   └── Demos/
-│       └── Demo_1/
+│       ├── Demo_1/
+│       └── Demo_2/
 ├── BUILDING.md
 ├── ENGINE_SPECIFICATIONS.md
 ├── tools/

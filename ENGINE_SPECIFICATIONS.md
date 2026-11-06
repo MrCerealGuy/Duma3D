@@ -26,6 +26,10 @@ The terrain uses spatial noise fields and randomized patches to distribute grass
 
 The nearby area contains walkable houses with front and rear rooms, paths, and trees. Each house has an interior partition parallel to its entrance wall and a doorway connecting the rooms. House dimensions, room and doorway layouts, windows, roof styles, colors, room lights, and tree placement vary procedurally.
 
+## Demo 2 level
+
+Demo 2 is a fully enclosed, authored six-room level connected by short corridors, with no exterior terrain or sky. A dim industrial palette and sparse warm, red, and blue point lights create alternating shadowed and illuminated zones. Doors block movement until opened, a relay switch restores power to a security gate and paired teleporters, and the player can use nearby targets with **E**. Room layout, door state, switch logic, and teleporter destinations are Demo 2 content; target selection and interaction dispatch are reusable `Engine::Game::InteractionSystem` behavior.
+
 Procedural base meshes include a cube and a UV sphere with smooth normals. Tiled PPM textures provide visible surface detail for terrain, plaster, roofs, wood floors and trim, paths, bark, and foliage.
 
 ## Rendering and lighting
@@ -34,7 +38,7 @@ The renderer, mesh data, and scene objects are organized into separate engine mo
 
 GPU meshes are cached by their vertex, index, and material-section data across scene updates. Unchanged chunk geometry and shared base meshes reuse existing vertex and index buffers; meshes no longer used are released after the new scene is uploaded. GPU textures are cached by resolved asset path in the same way.
 
-Lighting combines ambient light, a directional light with 3×3 percentage-closer filtering (PCF) shadows, up to four attenuated point lights, Blinn–Phong specular highlights, and emissive color. Color textures are decoded as sRGB. Lighting and Reinhard tone mapping run in linear space before the output is encoded back to sRGB.
+Lighting combines ambient light, a directional light with 3×3 percentage-closer filtering (PCF) shadows, up to sixteen attenuated point lights, Blinn–Phong specular highlights, and emissive color. Color textures are decoded as sRGB. Lighting and Reinhard tone mapping run in linear space before the output is encoded back to sRGB.
 
 ## Model and texture support
 
