@@ -78,8 +78,8 @@ namespace Duma3D::Demos::Demo_2
         }
 
         void buildRoom(ChunkData& chunk, std::size_t cube, std::size_t floor, std::size_t wall,
-            std::size_t trim, Vec3 center, bool north, bool east, bool south, bool west,
-            std::size_t lightIndex)
+            Vec3 center, bool north, bool east, bool south, bool west,
+            std::size_t metal, std::size_t lens, Vec3 lightColor, float lightIntensity, bool lampOnNorth)
         {
             addBox(chunk, cube, floor, {center.x, -0.22f, center.z}, {roomSize, 0.44f, roomSize}, true);
             addBox(chunk, cube, floor, {center.x, wallHeight + 0.12f, center.z},
@@ -89,25 +89,19 @@ namespace Duma3D::Demos::Demo_2
             addRoomWall(chunk, cube, wall, center, true, true, south);
             addRoomWall(chunk, cube, wall, center, false, false, west);
 
-            const Vec3 colors[] = {
-                {0.78f, 0.15f, 0.06f}, {0.85f, 0.3f, 0.08f}, {0.08f, 0.35f, 0.8f},
-                {0.55f, 0.06f, 0.03f}, {0.75f, 0.18f, 0.05f}, {0.08f, 0.5f, 0.72f}
-            };
-            const float brightness[] = {2.2f, 0.0f, 2.6f, 0.45f, 2.0f, 0.0f};
-            if (brightness[lightIndex] > 0.0f)
-            {
-                chunk.graphics.addPointLight({
-                    {center.x, 2.65f, center.z}, colors[lightIndex], brightness[lightIndex],
-                    1.0f, 0.1f, 0.11f
-                });
-            }
-
-            // Small emissive-style wall lamps remain readable even in the dark rooms.
-            if (lightIndex % 2 == 0)
-            {
-                addBox(chunk, cube, trim, {center.x, 2.7f, center.z - 4.25f},
-                    {0.55f, 0.24f, 0.16f});
-            }
+            // Layered wall luminaire, with its backplate fixed to the inner wall face.
+            const float wallDirection = lampOnNorth ? -1.0f : 1.0f;
+            const float z = center.z + wallDirection * 4.67f;
+            addBox(chunk, cube, metal, {center.x, 2.48f, z}, {1.05f, 0.82f, 0.18f});
+            addBox(chunk, cube, metal, {center.x, 2.48f, z - wallDirection * 0.1f}, {0.78f, 0.56f, 0.16f});
+            addBox(chunk, cube, lens, {center.x, 2.48f, z - wallDirection * 0.19f}, {0.52f, 0.27f, 0.04f});
+            for (const float xOffset : {-0.34f, 0.34f})
+                addBox(chunk, cube, metal, {center.x + xOffset, 2.48f, z - wallDirection * 0.21f},
+                    {0.06f, 0.56f, 0.05f});
+            chunk.graphics.addPointLight({
+                {center.x, 2.48f, center.z + wallDirection * 4.05f}, lightColor, lightIntensity,
+                1.0f, 0.12f, 0.12f
+            });
         }
 
         Vec3 linkCenter(const Link& link)
@@ -155,14 +149,26 @@ namespace Duma3D::Demos::Demo_2
         const std::size_t floor = scene.addMaterial({{0.53f, 0.47f, 0.4f}, "assets/textures/cobblestone.ppm"});
         const std::size_t metal = scene.addMaterial({{0.46f, 0.48f, 0.49f}, "assets/textures/dark_wood.ppm"});
         const std::size_t panel = scene.addMaterial({{0.75f, 0.18f, 0.04f}, "assets/textures/roof_terracotta.ppm"});
+        const std::size_t warmLens = scene.addMaterial({{1.0f, 0.62f, 0.2f}, {}});
+        const std::size_t redLens = scene.addMaterial({{1.0f, 0.1f, 0.035f}, {}});
+        const std::size_t blueLens = scene.addMaterial({{0.12f, 0.58f, 1.0f}, {}});
+        const std::size_t indicatorGreen = scene.addMaterial({{0.12f, 0.95f, 0.25f}, {}});
+        const std::size_t indicatorRed = scene.addMaterial({{1.0f, 0.06f, 0.025f}, {}});
+        const std::size_t sphere = scene.addMesh(Mesh::sphere());
         scene.setDirectionalLight({{0.0f, -1.0f, 0.0f}, {0.035f, 0.04f, 0.05f}, {0.018f, 0.02f, 0.024f}});
 
-        buildRoom(chunk, cube, floor, concrete, trim, roomCenters[0], true, true, false, false, 0);
-        buildRoom(chunk, cube, floor, concrete, trim, roomCenters[1], false, true, false, true, 1);
-        buildRoom(chunk, cube, floor, concrete, trim, roomCenters[2], true, false, false, true, 2);
-        buildRoom(chunk, cube, floor, concrete, trim, roomCenters[3], false, false, true, true, 3);
-        buildRoom(chunk, cube, floor, concrete, trim, roomCenters[4], false, true, false, true, 4);
-        buildRoom(chunk, cube, floor, concrete, trim, roomCenters[5], false, true, true, false, 5);
+        buildRoom(chunk, cube, floor, concrete, roomCenters[0], true, true, false, false,
+            metal, warmLens, {1.0f, 0.36f, 0.12f}, 2.1f, false);
+        buildRoom(chunk, cube, floor, concrete, roomCenters[1], false, true, false, true,
+            metal, warmLens, {1.0f, 0.32f, 0.1f}, 0.85f, true);
+        buildRoom(chunk, cube, floor, concrete, roomCenters[2], true, false, false, true,
+            metal, blueLens, {0.08f, 0.32f, 1.0f}, 2.5f, false);
+        buildRoom(chunk, cube, floor, concrete, roomCenters[3], false, false, true, true,
+            metal, redLens, {1.0f, 0.07f, 0.025f}, 0.62f, true);
+        buildRoom(chunk, cube, floor, concrete, roomCenters[4], false, true, false, true,
+            metal, warmLens, {1.0f, 0.26f, 0.07f}, 2.0f, true);
+        buildRoom(chunk, cube, floor, concrete, roomCenters[5], false, true, true, false,
+            metal, redLens, {1.0f, 0.08f, 0.025f}, 0.0f, true);
 
         for (std::size_t index = 0; index < links.size(); ++index)
         {
@@ -170,20 +176,32 @@ namespace Duma3D::Demos::Demo_2
             const Vec3 center = linkCenter(link);
             buildCorridor(chunk, cube, floor, concrete, link);
             const Vec3 doorScale = link.alongX ? Vec3{0.42f, 2.62f, 3.5f} : Vec3{3.5f, 2.62f, 0.42f};
-            if (!state.doorsOpen[index])
-            {
-                addBox(chunk, cube, metal, {center.x, 1.31f, center.z}, doorScale, true);
-                addBox(chunk, cube, panel, {center.x, 2.9f, center.z},
-                    link.alongX ? Vec3{0.5f, 0.18f, 1.0f} : Vec3{1.0f, 0.18f, 0.5f});
-            }
+            const float doorOffset = 4.0f * state.doorOpenAmount[index];
+            const Vec3 doorPosition = link.alongX
+                ? Vec3{center.x, 1.31f, center.z + doorOffset}
+                : Vec3{center.x + doorOffset, 1.31f, center.z};
+            addBox(chunk, cube, metal, doorPosition, doorScale, state.doorOpenAmount[index] < 0.98f);
+            addBox(chunk, cube, panel, {center.x, 2.9f, center.z},
+                link.alongX ? Vec3{0.5f, 0.18f, 1.0f} : Vec3{1.0f, 0.18f, 0.5f});
             // Red guide strips mark the door threshold in the otherwise dim halls.
             addBox(chunk, cube, index == 1 && state.powerOn ? panel : trim,
                 {center.x, 0.035f, center.z}, link.alongX ? Vec3{0.32f, 0.07f, 3.6f} : Vec3{3.6f, 0.07f, 0.32f});
         }
 
-        // Power switch in the relay chamber.
-        addBox(chunk, cube, state.powerOn ? panel : metal, {1.8f, 1.35f, -14.0f}, {0.22f, 0.8f, 0.65f});
-        scene.addPointLight({{1.8f, 2.5f, -14.0f}, {1.0f, 0.18f, 0.035f}, 0.36f, 1.0f, 0.12f, 0.16f});
+        // Wall-mounted relay panel with a large lever and separate status lamps.
+        addBox(chunk, cube, metal, {-2.0f, 1.45f, -18.68f}, {1.35f, 1.55f, 0.18f});
+        addBox(chunk, cube, trim, {-2.0f, 1.48f, -18.53f}, {0.92f, 1.1f, 0.12f});
+        addBox(chunk, cube, panel, {-2.0f, 1.22f, -18.43f}, {0.54f, 0.72f, 0.12f});
+        addBox(chunk, cube, metal, {-2.0f, 1.45f, -18.34f}, {0.14f, 0.53f, 0.14f});
+        scene.addObject(cube, metal, {{-2.0f, state.powerOn ? 1.61f : 1.3f, -18.29f},
+            {state.powerOn ? -28.0f : 28.0f, 0.0f, 0.0f}, {0.16f, 0.48f, 0.16f}});
+        scene.addObject(sphere, metal, {{-2.0f, state.powerOn ? 1.82f : 1.51f, -18.24f},
+            {}, {0.23f, 0.23f, 0.23f}});
+        scene.addObject(sphere, indicatorRed, {{-2.28f, 2.0f, -18.39f}, {}, {0.11f, 0.11f, 0.11f}});
+        scene.addObject(sphere, state.powerOn ? indicatorGreen : indicatorRed,
+            {{-1.72f, 2.0f, -18.39f}, {}, {0.11f, 0.11f, 0.11f}});
+        scene.addPointLight({{-2.0f, 2.08f, -18.15f}, state.powerOn ? Vec3{0.1f, 0.85f, 0.18f} : Vec3{0.9f, 0.04f, 0.015f},
+            state.powerOn ? 0.62f : 0.18f, 1.0f, 0.1f, 0.08f});
         // Paired floor pads identify the teleporter endpoints.
         for (const Vec3 point : {Vec3{28.0f, 0.035f, -14.0f}, Vec3{0.0f, 0.035f, -14.0f}})
             addBox(chunk, cube, state.powerOn ? panel : trim, point, {2.5f, 0.07f, 2.5f});
@@ -212,10 +230,10 @@ namespace Duma3D::Demos::Demo_2
                     return Game::InteractionResult{true, false, L"Sicherheitstor ohne Strom"};
                 state.doorsOpen[index] = !state.doorsOpen[index];
                 return Game::InteractionResult{true, true,
-                    state.doorsOpen[index] ? L"Tür geöffnet" : L"Tür geschlossen"};
+                    state.doorsOpen[index] ? L"Tür fährt langsam auf" : L"Tür fährt langsam zu"};
             }});
         }
-        interactions.add({{1.8f, 1.35f, -14.0f}, 2.8f, L"[E] Stromversorgung umschalten", [&state]()
+        interactions.add({{-2.0f, 1.4f, -18.1f}, 2.8f, L"[E] RELAIS / Stromversorgung", [&state]()
         {
             state.powerOn = !state.powerOn;
             if (!state.powerOn)
@@ -237,5 +255,36 @@ namespace Duma3D::Demos::Demo_2
             camera.setPosition({28.0f, 1.7f, -12.0f});
             return Game::InteractionResult{true, false, L"Teleporter: Kernkammer"};
         }});
+    }
+
+    bool advanceDoors(LevelState& state, float deltaTime)
+    {
+        constexpr float slideSpeed = 0.35f;
+        bool changed = false;
+        for (std::size_t index = 0; index < state.doorsOpen.size(); ++index)
+        {
+            const float target = state.doorsOpen[index] ? 1.0f : 0.0f;
+            const float current = state.doorOpenAmount[index];
+            const float difference = target - current;
+            if (std::abs(difference) < 1.0e-5f)
+                continue;
+            state.doorOpenAmount[index] += std::copysign(
+                std::min(std::abs(difference), slideSpeed * deltaTime), difference);
+            changed = true;
+        }
+        return changed;
+    }
+
+    void updateLampFlicker(GraphicsScene::Scene& scene, float elapsedTime)
+    {
+        const float pulse = 0.78f + 0.22f * std::abs(std::sin(elapsedTime * 3.1f));
+        const float irregular = std::sin(elapsedTime * 8.7f + 0.7f) * std::sin(elapsedTime * 2.4f);
+        const float hallwayLamp = irregular > 0.88f ? 0.07f : 0.85f * pulse;
+        const float furnaceLamp = std::sin(elapsedTime * 5.3f + 1.1f) > 0.94f ? 0.035f : 0.62f * pulse;
+        const bool deadBulbSputter = std::sin(elapsedTime * 2.2f) > 0.985f &&
+            std::sin(elapsedTime * 13.0f + 0.4f) > 0.45f;
+        scene.setPointLightIntensity(1, hallwayLamp);
+        scene.setPointLightIntensity(3, furnaceLamp);
+        scene.setPointLightIntensity(5, deadBulbSputter ? 0.48f : 0.0f);
     }
 }

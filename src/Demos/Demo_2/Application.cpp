@@ -164,6 +164,11 @@ namespace Duma3D::Demos::Demo_2
 
     void Application::update(float dt)
     {
+        elapsedTime_ += dt;
+        if (advanceDoors(levelState_, dt))
+            rebuildLevel();
+        updateLampFlicker(level_.graphics, elapsedTime_);
+
         const Engine::Game::Physics::GroundHeightSampler ground = [](float, float) { return 0.0f; };
         const Engine::Game::FirstPersonInput input{
             static_cast<float>(keys_['W']) - static_cast<float>(keys_['S']),

@@ -53,6 +53,7 @@ namespace Engine::Graphics::Scene
         std::size_t addMesh(Mesh mesh);
         std::size_t addMaterial(Material material);
         bool addPointLight(PointLight light);
+        bool setPointLightIntensity(std::size_t index, float intensity);
         bool addObject(std::size_t meshIndex, std::size_t materialIndex, Transform transform = {});
         void setDirectionalLight(DirectionalLight light) { m_directionalLight = light; }
 

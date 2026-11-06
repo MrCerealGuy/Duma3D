@@ -28,6 +28,14 @@ namespace Engine::Graphics::Scene
         return true;
     }
 
+    bool Scene::setPointLightIntensity(std::size_t index, float intensity)
+    {
+        if (index >= m_pointLights.size() || !std::isfinite(intensity) || intensity < 0.0f)
+            return false;
+        m_pointLights[index].intensity = intensity;
+        return true;
+    }
+
     bool Scene::addObject(std::size_t meshIndex, std::size_t materialIndex, Transform transform)
     {
         constexpr float minimumScale = 1.0e-6f;

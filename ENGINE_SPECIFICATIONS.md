@@ -28,7 +28,7 @@ The nearby area contains walkable houses with front and rear rooms, paths, and t
 
 ## Demo 2 level
 
-Demo 2 is a fully enclosed, authored six-room level connected by short corridors, with no exterior terrain or sky. A dim industrial palette and sparse warm, red, and blue point lights create alternating shadowed and illuminated zones. Doors block movement until opened, a relay switch restores power to a security gate and paired teleporters, and the player can use nearby targets with **E**. Room layout, door state, switch logic, and teleporter destinations are Demo 2 content; target selection and interaction dispatch are reusable `Engine::Game::InteractionSystem` behavior.
+Demo 2 is a fully enclosed, authored six-room level connected by short corridors, with no exterior terrain or sky. A dim industrial palette and sparse warm, red, and blue point lights create alternating shadowed and illuminated zones. Wall-mounted luminaires have layered metal housings and lenses; two lamps flicker irregularly, and a failed bulb occasionally sputters. Doors slide slowly into the corridor walls and block movement while closed. A wall-mounted relay switch restores power to a security gate and paired teleporters; the player can use nearby targets with **E**. Room layout, door state, switch logic, and teleporter destinations are Demo 2 content; target selection and interaction dispatch are reusable `Engine::Game::InteractionSystem` behavior.
 
 Procedural base meshes include a cube and a UV sphere with smooth normals. Tiled PPM textures provide visible surface detail for terrain, plaster, roofs, wood floors and trim, paths, bark, and foliage.
 

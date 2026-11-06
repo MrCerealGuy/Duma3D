@@ -41,6 +41,7 @@ namespace Duma3D::Demos::Demo_2
         std::wstring title_;
         bool running_ = true;
         bool jumpRequested_ = false;
+        float elapsedTime_ = 0.0f;
         bool keys_[256]{};
         Engine::Graphics::Camera camera_{{0.0f, 1.7f, 0.0f}};
         Engine::Game::FirstPersonController player_;
@@ -48,6 +49,6 @@ namespace Duma3D::Demos::Demo_2
         LevelState levelState_;
         Engine::Game::World::ChunkData level_;
         Engine::Graphics::Renderer renderer_;
-        std::wstring statusMessage_ = L"Notschalter und Teleporter: [E]";
+        std::wstring statusMessage_ = L"Relais in der Relaiskammer aktivieren";
     };
 }
