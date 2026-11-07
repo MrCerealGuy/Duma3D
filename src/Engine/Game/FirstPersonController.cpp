@@ -6,7 +6,7 @@
 namespace Engine::Game
 {
     FirstPersonController::FirstPersonController(FirstPersonControllerConfig config)
-        : m_config(config)
+        : m_config(config), m_character(config.character)
     {
         if (!std::isfinite(config.moveSpeed) || config.moveSpeed <= 0.0f ||
             !std::isfinite(config.sprintMultiplier) || config.sprintMultiplier < 1.0f)

@@ -21,6 +21,7 @@ namespace Engine::Game
     {
         float moveSpeed = 3.0f;
         float sprintMultiplier = 2.0f;
+        Physics::CharacterControllerConfig character{};
     };
 
     // Reusable game-side first-person movement. Platform input is translated to

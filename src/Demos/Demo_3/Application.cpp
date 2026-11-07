@@ -49,6 +49,11 @@ namespace Duma3D::Demos::Demo_3
             throw std::runtime_error(error);
         scene_.setDirectionalLight({{-0.35f, -1.0f, -0.25f}, {0.9f, 0.88f, 0.82f}, {0.32f, 0.32f, 0.35f}});
         camera_.setPosition(bounds_.suggestedStart);
+        buildWalkGeometry();
+        playerController_.placeOnGround(camera_, [this](float x, float z)
+        {
+            return sampleGroundHeight(x, z);
+        });
     }
 
     Application::~Application()
@@ -170,12 +175,107 @@ namespace Duma3D::Demos::Demo_3
 
     void Application::update(float deltaTime)
     {
-        const float speed = keys_[VK_SHIFT] ? 24.0f : 8.0f;
-        const float forward = static_cast<float>(keys_['W']) - static_cast<float>(keys_['S']);
-        const float right = static_cast<float>(keys_['D']) - static_cast<float>(keys_['A']);
-        const float vertical = static_cast<float>(keys_[VK_SPACE]) - static_cast<float>(keys_[VK_CONTROL]);
-        camera_.moveOnGround(forward * speed * deltaTime, right * speed * deltaTime);
-        camera_.moveUp(vertical * speed * deltaTime);
+        const Engine::Game::FirstPersonInput input{
+            static_cast<float>(keys_['W']) - static_cast<float>(keys_['S']),
+            static_cast<float>(keys_['D']) - static_cast<float>(keys_['A']),
+            static_cast<float>(keys_[VK_SPACE]) - static_cast<float>(keys_[VK_CONTROL]),
+            keys_[VK_SHIFT],
+            jumpRequested_
+        };
+        const Engine::Game::Physics::GroundHeightSampler ground = [this](float x, float z)
+        {
+            return sampleGroundHeight(x, z);
+        };
+        playerController_.update(colliders_, camera_, input, deltaTime, ground);
+        jumpRequested_ = false;
+    }
+
+    float Application::sampleGroundHeight(float worldX, float worldZ) const
+    {
+        constexpr float eyeHeight = 0.82f;
+        const float highestGround = camera_.position().y - eyeHeight + 0.24f;
+        float result = -std::numeric_limits<float>::infinity();
+        for (const WalkableTriangle& triangle : walkableSurfaces_)
+        {
+            if (worldX < triangle.minimumX || worldX > triangle.maximumX ||
+                worldZ < triangle.minimumZ || worldZ > triangle.maximumZ)
+                continue;
+            const float v0x = triangle.b.x - triangle.a.x;
+            const float v0z = triangle.b.z - triangle.a.z;
+            const float v1x = triangle.c.x - triangle.a.x;
+            const float v1z = triangle.c.z - triangle.a.z;
+            const float v2x = worldX - triangle.a.x;
+            const float v2z = worldZ - triangle.a.z;
+            const float d00 = v0x * v0x + v0z * v0z;
+            const float d01 = v0x * v1x + v0z * v1z;
+            const float d11 = v1x * v1x + v1z * v1z;
+            const float d20 = v2x * v0x + v2z * v0z;
+            const float d21 = v2x * v1x + v2z * v1z;
+            const float denominator = d00 * d11 - d01 * d01;
+            if (std::abs(denominator) < 1.0e-6f) continue;
+            const float v = (d11 * d20 - d01 * d21) / denominator;
+            const float w = (d00 * d21 - d01 * d20) / denominator;
+            if (v < -0.001f || w < -0.001f || v + w > 1.001f) continue;
+            const float height = triangle.a.y + v * (triangle.b.y - triangle.a.y) +
+                w * (triangle.c.y - triangle.a.y);
+            if (height <= highestGround && height > result)
+                result = height;
+        }
+        if (std::isfinite(result)) return result;
+        return bounds_.suggestedStart.y - eyeHeight;
+    }
+
+    void Application::buildWalkGeometry()
+    {
+        constexpr float maximumColliderSpan = 90.0f;
+        constexpr float maximumWalkTriangleSpan = 50.0f;
+        for (const Engine::Graphics::Scene::Mesh& mesh : scene_.meshes())
+        {
+            if (mesh.vertices.empty()) continue;
+            Engine::Math::Vec3 minimum = mesh.vertices.front().position;
+            Engine::Math::Vec3 maximum = minimum;
+            for (const auto& vertex : mesh.vertices)
+            {
+                minimum.x = std::min(minimum.x, vertex.position.x);
+                minimum.y = std::min(minimum.y, vertex.position.y);
+                minimum.z = std::min(minimum.z, vertex.position.z);
+                maximum.x = std::max(maximum.x, vertex.position.x);
+                maximum.y = std::max(maximum.y, vertex.position.y);
+                maximum.z = std::max(maximum.z, vertex.position.z);
+            }
+            const float spanX = maximum.x - minimum.x;
+            const float spanY = maximum.y - minimum.y;
+            const float spanZ = maximum.z - minimum.z;
+            if (spanX <= maximumColliderSpan && spanY <= maximumColliderSpan && spanZ <= maximumColliderSpan)
+                colliders_.push_back({minimum, maximum});
+
+            for (std::size_t index = 0; index + 2 < mesh.indices.size(); index += 3)
+            {
+                const auto& a = mesh.vertices[mesh.indices[index]];
+                const auto& b = mesh.vertices[mesh.indices[index + 1]];
+                const auto& c = mesh.vertices[mesh.indices[index + 2]];
+                const Engine::Math::Vec3 ab{b.position.x - a.position.x, b.position.y - a.position.y,
+                    b.position.z - a.position.z};
+                const Engine::Math::Vec3 ac{c.position.x - a.position.x, c.position.y - a.position.y,
+                    c.position.z - a.position.z};
+                const Engine::Math::Vec3 geometricNormal = Engine::Math::cross(ab, ac);
+                const float areaTwice = std::sqrt(Engine::Math::dot(geometricNormal, geometricNormal));
+                Engine::Math::Vec3 normal{
+                    a.normal.x + b.normal.x + c.normal.x,
+                    a.normal.y + b.normal.y + c.normal.y,
+                    a.normal.z + b.normal.z + c.normal.z};
+                normal = Engine::Math::normalize(normal);
+                if (normal.y < 0.0f) normal = {-normal.x, -normal.y, -normal.z};
+                if (normal.y < 0.65f || areaTwice < 0.08f) continue;
+                const float minX = std::min({a.position.x, b.position.x, c.position.x});
+                const float maxX = std::max({a.position.x, b.position.x, c.position.x});
+                const float minZ = std::min({a.position.z, b.position.z, c.position.z});
+                const float maxZ = std::max({a.position.z, b.position.z, c.position.z});
+                if (maxX - minX > maximumWalkTriangleSpan || maxZ - minZ > maximumWalkTriangleSpan)
+                    continue;
+                walkableSurfaces_.push_back({a.position, b.position, c.position, minX, maxX, minZ, maxZ});
+            }
+        }
     }
 
     void Application::updateHud()
@@ -183,7 +283,11 @@ namespace Duma3D::Demos::Demo_3
         if (!hudHwnd_) return;
         const Engine::Math::Vec3 size{bounds_.maximum.x - bounds_.minimum.x,
             bounds_.maximum.y - bounds_.minimum.y, bounds_.maximum.z - bounds_.minimum.z};
-        std::wstring text = L"DUMA3D // GLB LEVEL VIEWER\r\n";
+        const bool walking = playerController_.mode() == Engine::Game::MovementMode::Walk;
+        const wchar_t* mode = walking ? L"Laufmodus" : L"Flugmodus";
+        const std::wstring title = L"Duma3D Demo 3 | " + modelPath_.filename().wstring() + L" [" + mode + L"]";
+        SetWindowTextW(hwnd_, title.c_str());
+        std::wstring text = L"DUMA3D // GLB LEVEL VIEWER  |  " + std::wstring(mode) + L"\r\n";
         text += std::to_wstring(scene_.objects().size()) + L" mesh instances  |  " +
             std::to_wstring(scene_.materials().size()) + L" materials\r\n";
         text += L"Bounds: " + std::to_wstring(static_cast<int>(size.x)) + L" x " +
@@ -192,7 +296,9 @@ namespace Duma3D::Demos::Demo_3
         text += L"View start: " + std::to_wstring(static_cast<int>(bounds_.suggestedStart.x)) + L", " +
             std::to_wstring(static_cast<int>(bounds_.suggestedStart.y)) + L", " +
             std::to_wstring(static_cast<int>(bounds_.suggestedStart.z)) + L"\r\n\r\n";
-        text += L"[WASD] Move   [Space/Ctrl] Up/Down\r\n[Shift] Fast   [Mouse] Look   [Esc] Quit";
+        text += L"[WASD] Bewegen   [Maus] Umsehen\r\n";
+        text += walking ? L"[Space] Springen\r\n" : L"[Space/Ctrl] Hoch/Runter\r\n";
+        text += L"[Shift] Sprint   [G] Modus wechseln\r\n[Esc] Beenden";
         SetWindowTextW(hudHwnd_, text.c_str());
     }
 
@@ -209,7 +315,19 @@ namespace Duma3D::Demos::Demo_3
 
     void Application::handleKeyDown(WPARAM key)
     {
+        const bool wasDown = key < 256 && keys_[key];
         if (key < 256) keys_[key] = true;
+        if (key == 'G' && !wasDown)
+        {
+            playerController_.toggleMode(camera_, [this](float x, float z)
+            {
+                return sampleGroundHeight(x, z);
+            });
+            jumpRequested_ = false;
+            updateHud();
+        }
+        if (key == VK_SPACE && !wasDown && playerController_.mode() == Engine::Game::MovementMode::Walk)
+            jumpRequested_ = true;
         if (key == VK_ESCAPE) running_ = false;
     }
 

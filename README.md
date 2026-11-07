@@ -23,9 +23,11 @@ Demo_3 defaults to `assets/sketchfab/levels/map-78/source/78.glb`. Keep the larg
 
 ## Demo_3 controls
 
-- **WASD:** Move through the level
+- **WASD:** Walk or fly through the level
 - **Mouse:** Look around
-- **Space / Ctrl:** Move up / down
+- **G:** Switch between walking and flight modes
+- **Walking mode:** **Space** jumps; gravity and level geometry constrain movement
+- **Flight mode:** **Space / Ctrl** move up / down
 - **Shift:** Move faster
 - **Esc:** Quit
 
