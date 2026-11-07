@@ -41,11 +41,16 @@ namespace Duma3D::Demos::Demo_2
         }
     }
 
-    Application::Application(int width, int height, std::wstring title)
-        : width_(width), height_(height), title_(std::move(title)), level_(generateLevel(levelState_))
+    Application::Application(int width, int height, std::wstring title, std::filesystem::path levelPath)
+        : width_(width), height_(height), title_(std::move(title)),
+          levelDefinition_(Engine::Game::World::IndoorLevelLoader::load(levelPath)),
+          levelState_(Engine::Game::World::IndoorLevelBuilder::initialState(levelDefinition_)),
+          level_(Engine::Game::World::IndoorLevelBuilder::build(levelDefinition_, levelState_))
     {
-        camera_.rotate(90.0f, 0.0f);
-        registerInteractions(interactions_, levelState_, camera_);
+        title_ += L" | " + std::wstring(levelDefinition_.name.begin(), levelDefinition_.name.end());
+        Engine::Game::World::IndoorLevelBuilder::placeAtSpawn(levelDefinition_, camera_);
+        Engine::Game::World::IndoorLevelBuilder::registerInteractions(
+            levelDefinition_, levelState_, interactions_, camera_);
     }
 
     Application::~Application()
@@ -166,9 +171,10 @@ namespace Duma3D::Demos::Demo_2
     {
         elapsedTime_ += dt;
         audio_.update(dt);
-        if (advanceDoors(levelState_, dt))
+        if (Engine::Game::World::IndoorLevelBuilder::advanceDoors(levelDefinition_, levelState_, dt))
             rebuildLevel();
-        const bool sputtering = updateLampFlicker(level_.graphics, elapsedTime_);
+        const bool sputtering = Engine::Game::World::IndoorLevelBuilder::updateLampFlicker(
+            levelDefinition_, level_.graphics, elapsedTime_);
         if (sputtering && !lampSputtering_)
             audio_.play("assets/audio/lamp_flicker.wav", Engine::Audio::Priority::Flicker);
         lampSputtering_ = sputtering;
@@ -191,7 +197,8 @@ namespace Duma3D::Demos::Demo_2
         if (hudHwnd_)
         {
             const Engine::Game::Interactable* target = interactions_.target(camera_);
-            std::wstring text = L"DUMA3D // SECTOR 09\r\n\r\n[WASD] Bewegen   [Maus] Umsehen\r\n[Shift] Sprint   [Space] Springen\r\n[E] Interagieren   [Esc] Beenden\r\n\r\n";
+            const std::wstring levelName(levelDefinition_.name.begin(), levelDefinition_.name.end());
+            std::wstring text = L"DUMA3D // " + levelName + L"\r\n\r\n[WASD] Bewegen   [Maus] Umsehen\r\n[Shift] Sprint   [Space] Springen\r\n[E] Interagieren   [Esc] Beenden\r\n\r\n";
             if (target) text += target->prompt + L"\r\n";
             text += statusMessage_;
             SetWindowTextW(hudHwnd_, text.c_str());
@@ -200,7 +207,7 @@ namespace Duma3D::Demos::Demo_2
 
     void Application::rebuildLevel()
     {
-        level_ = generateLevel(levelState_);
+        level_ = Engine::Game::World::IndoorLevelBuilder::build(levelDefinition_, levelState_);
         if (!renderer_.updateScene(level_.graphics))
         {
             OutputDebugStringW(L"Duma3D Demo 2: Szenenupdate fehlgeschlagen.\n");

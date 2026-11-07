@@ -1,12 +1,13 @@
 #pragma once
 
-#include "DemoScene.hpp"
 #include "Engine/Audio/AudioPlayer.hpp"
 #include "Engine/Game/FirstPersonController.hpp"
+#include "Engine/Game/World/IndoorLevel.hpp"
 #include "Engine/Graphics/Renderer.hpp"
 
 #include <windows.h>
 
+#include <filesystem>
 #include <string>
 
 namespace Duma3D::Demos::Demo_2
@@ -14,7 +15,8 @@ namespace Duma3D::Demos::Demo_2
     class Application
     {
     public:
-        Application(int width, int height, std::wstring title);
+        Application(int width, int height, std::wstring title,
+            std::filesystem::path levelPath = "assets/levels/sector_09.d3l");
         ~Application();
         int run();
 
@@ -48,10 +50,11 @@ namespace Duma3D::Demos::Demo_2
         Engine::Graphics::Camera camera_{{0.0f, 1.7f, 0.0f}};
         Engine::Game::FirstPersonController player_;
         Engine::Game::InteractionSystem interactions_;
-        LevelState levelState_;
+        Engine::Game::World::IndoorLevelDefinition levelDefinition_;
+        Engine::Game::World::IndoorLevelState levelState_;
         Engine::Game::World::ChunkData level_;
         Engine::Graphics::Renderer renderer_;
         Engine::Audio::AudioPlayer audio_;
-        std::wstring statusMessage_ = L"Relais in der Relaiskammer aktivieren";
+        std::wstring statusMessage_ = L"Level geladen";
     };
 }

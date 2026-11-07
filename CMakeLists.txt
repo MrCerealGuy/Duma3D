@@ -23,6 +23,7 @@ add_library(Duma3DEngine STATIC
     src/Engine/Graphics/Scene/Mesh.cpp
     src/Engine/Graphics/Scene/Scene.cpp
     src/Engine/Game/World/ChunkWorld.cpp
+    src/Engine/Game/World/IndoorLevel.cpp
 )
 
 target_include_directories(Duma3DEngine
@@ -39,7 +40,6 @@ add_executable(Duma3D
 add_executable(Duma3D_Demo_2
     src/Demos/Demo_2/main.cpp
     src/Demos/Demo_2/Application.cpp
-    src/Demos/Demo_2/DemoScene.cpp
 )
 
 add_executable(GenerateDemoAudio EXCLUDE_FROM_ALL

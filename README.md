@@ -6,6 +6,8 @@ See [BUILDING.md](BUILDING.md) for prerequisites and instructions to configure, 
 
 See [ENGINE_SPECIFICATIONS.md](ENGINE_SPECIFICATIONS.md) for the engine architecture, rendering and asset pipeline, world and chunk system, and the current demo capabilities.
 
+Demo_2 levels are loaded at runtime using the [Duma3D Indoor Level Format](LEVEL_FORMAT.md).
+
 ## Controls
 
 - The demo starts in walking mode, with the controls shown in the upper-left corner.
@@ -35,6 +37,8 @@ Duma3D/
 │   ├── launch.json
 │   └── tasks.json
 ├── assets/
+│   ├── levels/
+│   │   └── sector_09.d3l
 │   ├── textures/
 │   ├── models/
 │   ├── audio/
@@ -64,6 +68,7 @@ Duma3D/
 │       └── Demo_2/
 ├── BUILDING.md
 ├── ENGINE_SPECIFICATIONS.md
+├── LEVEL_FORMAT.md
 ├── tools/
 │   ├── GenerateDemoAudio.cpp
 │   └── GenerateDemoTextures.cpp

@@ -1,0 +1,61 @@
+# Duma3D Indoor Level Format, version 1.
+# Records use whitespace-separated fields. Lines starting with # are comments.
+# settings: room-size room-spacing corridor-width wall-height
+DUMA3D_LEVEL 1
+name Sector_09
+settings 10 14 4 3.2
+
+# material: id texture-or-- tint-r tint-g tint-b
+material wall assets/textures/rock.ppm 0.44 0.43 0.42
+material floor assets/textures/cobblestone.ppm 0.53 0.47 0.40
+material metal assets/textures/dark_wood.ppm 0.46 0.48 0.49
+material trim assets/textures/roof_slate.ppm 0.38 0.39 0.41
+material warning assets/textures/roof_terracotta.ppm 0.75 0.18 0.04
+material amber_lens - 1.00 0.62 0.20
+material red_lens - 1.00 0.10 0.035
+material blue_lens - 0.12 0.58 1.00
+material red_led - 1.00 0.06 0.025
+material green_led - 0.12 0.95 0.25
+material teleporter_on assets/textures/roof_terracotta.ppm 0.08 0.55 1.00
+
+# room: id center-x center-z
+room entrance 0 0
+room atrium 14 0
+room reactor 28 0
+room breach 28 -14
+room control 14 -14
+room relay 0 -14
+
+# link: room-a room-b door-id
+link entrance atrium entrance_door
+link atrium reactor security_gate
+link reactor breach reactor_door
+link breach control breach_door
+link control relay control_door
+link relay entrance return_door
+
+# door: id initial-state required-switch-or-- material-id
+door entrance_door open - metal
+door security_gate closed relay metal
+door reactor_door open - metal
+door breach_door open - metal
+door control_door open - metal
+door return_door open - metal
+
+# lamp: room wall-side tangent-offset lens-material rgb intensity steady|flicker|sputter
+lamp entrance south 0 amber_lens 1.00 0.36 0.12 2.10 steady
+lamp atrium north 0 amber_lens 1.00 0.32 0.10 0.85 flicker
+lamp reactor south 0 blue_lens 0.08 0.32 1.00 2.50 steady
+lamp breach north 0 red_lens 1.00 0.07 0.025 0.62 flicker
+lamp control north 0 amber_lens 1.00 0.26 0.07 2.00 steady
+lamp relay north 0 red_lens 1.00 0.08 0.025 0 sputter
+
+# switch: id room wall-side tangent-offset door-to-power body handle off-led on-led
+switch relay relay north -2 security_gate metal warning red_led green_led
+
+# teleporter: id room offset-x offset-z destination material required-switch-or--
+teleporter pad_relay relay 0 0 pad_core warning relay
+teleporter pad_core breach 0 0 pad_relay warning relay
+
+# spawn: room offset-x offset-z yaw-degrees (0 points east)
+spawn entrance 0 0 0
