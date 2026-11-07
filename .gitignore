@@ -44,6 +44,9 @@ build/
 Build/
 build-*/
 
+# Large user-provided Sketchfab downloads stay local.
+/assets/sketchfab/
+
 # CMake generated files
 CMakeFiles/
 CMakeCache.txt

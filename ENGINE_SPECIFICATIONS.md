@@ -43,6 +43,6 @@ Lighting combines ambient light, a directional light with 3×3 percentage-closer
 
 ## Model and texture support
 
-The Wavefront importer reads positions, normals, UV texture coordinates, faces, and smoothing groups (`s`). It triangulates polygon faces and calculates missing normals per face or smoothing group. MTL diffuse colors (`Kd`), specular colors (`Ks`), emissive colors (`Ke`), shininess (`Ns`), and basic `map_Kd` paths are applied per material section.
+The Wavefront importer reads positions, normals, UV texture coordinates, faces, and smoothing groups (`s`). It triangulates polygon faces and calculates missing normals per face or smoothing group. MTL diffuse colors (`Kd`), specular colors (`Ks`), emissive colors (`Ke`), shininess (`Ns`), and basic `map_Kd` paths are applied per material section. `Engine::Graphics::Scene::GltfLoader` also loads glTF 2.0 binary files (`.glb`), including node transforms, indexed triangle meshes, PBR base-color factors, and embedded PNG/JPEG base-color images. Embedded images are extracted to the operating-system temporary directory for the existing WIC texture decoder.
 
 Diffuse textures use generated mipmaps and trilinear filtering. Identical texture paths share GPU textures. The texture loader supports P3 and P6 PPM, PNG, JPEG, and BMP through Windows Imaging Component. Extended MTL map options are not yet supported.

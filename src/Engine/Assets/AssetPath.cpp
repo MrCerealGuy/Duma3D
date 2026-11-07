@@ -24,7 +24,21 @@ namespace Engine::Assets
             const std::filesystem::path executable(
                 std::wstring(executablePath.data(), length)
             );
-            return (executable.parent_path() / path).lexically_normal();
+            const std::filesystem::path besideExecutable = (executable.parent_path() / path).lexically_normal();
+            std::error_code existsError;
+            if (std::filesystem::exists(besideExecutable, existsError))
+                return besideExecutable;
+
+            existsError.clear();
+            const std::filesystem::path workingDirectory = std::filesystem::current_path(existsError);
+            if (!existsError)
+            {
+                const std::filesystem::path besideWorkingDirectory = (workingDirectory / path).lexically_normal();
+                existsError.clear();
+                if (std::filesystem::exists(besideWorkingDirectory, existsError))
+                    return besideWorkingDirectory;
+            }
+            return besideExecutable;
         }
 
         std::error_code error;

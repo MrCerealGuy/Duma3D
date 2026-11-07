@@ -1,12 +1,14 @@
 # Duma3D
 
-Duma3D is an experimental 3D engine for Windows. The project builds the engine as a reusable library and includes separate demos. `Demo_1` showcases procedural terrain and walkable houses; `Demo_2` is an enclosed Doom-inspired level built from connected rooms and corridors, with lighting contrast, interactive doors, a power switch, teleporters, machinery ambience, and synthesized sound effects.
+Duma3D is an experimental 3D engine for Windows. The project builds the engine as a reusable library and includes separate demos. `Demo_1` showcases procedural terrain and walkable houses; `Demo_2` is an enclosed Doom-inspired level with interactive combat; `Demo_3` loads a local Sketchfab GLB level and its embedded textures.
 
 See [BUILDING.md](BUILDING.md) for prerequisites and instructions to configure, build, and run the project from Visual Studio Code or the command line.
 
 See [ENGINE_SPECIFICATIONS.md](ENGINE_SPECIFICATIONS.md) for the engine architecture, rendering and asset pipeline, world and chunk system, and the current demo capabilities.
 
 Demo_2 levels are loaded at runtime using the [Duma3D Indoor Level Format](LEVEL_FORMAT.md).
+
+Demo_3 defaults to `assets/sketchfab/levels/map-78/source/78.glb`. Keep the large download in the local workspace; Git ignores the entire `assets/sketchfab` folder.
 
 ## Controls
 
@@ -16,6 +18,14 @@ Demo_2 levels are loaded at runtime using the [Duma3D Indoor Level Format](LEVEL
 - **G:** Switch between flight and walking modes
 - **Flight mode:** **Space** / **Ctrl** move up / down
 - **Walking mode:** **Space** jumps; gravity, terrain, and house walls constrain movement
+- **Shift:** Move faster
+- **Esc:** Quit
+
+## Demo_3 controls
+
+- **WASD:** Move through the level
+- **Mouse:** Look around
+- **Space / Ctrl:** Move up / down
 - **Shift:** Move faster
 - **Esc:** Quit
 
@@ -67,7 +77,8 @@ Duma3D/
 │   │   │   └── World/
 │   └── Demos/
 │       ├── Demo_1/
-│       └── Demo_2/
+│       ├── Demo_2/
+│       └── Demo_3/
 ├── BUILDING.md
 ├── ENGINE_SPECIFICATIONS.md
 ├── LEVEL_FORMAT.md

@@ -16,6 +16,7 @@ add_library(Duma3DEngine STATIC
     src/Engine/Audio/AudioPlayer.cpp
     src/Engine/Graphics/Camera.cpp
     src/Engine/Graphics/Renderer.cpp
+    src/Engine/Graphics/Scene/GltfLoader.cpp
     src/Engine/Game/FirstPersonController.cpp
     src/Engine/Game/CombatSystem.cpp
     src/Engine/Game/InteractionSystem.cpp
@@ -43,6 +44,11 @@ add_executable(Duma3D_Demo_2
     src/Demos/Demo_2/Application.cpp
 )
 
+add_executable(Duma3D_Demo_3
+    src/Demos/Demo_3/main.cpp
+    src/Demos/Demo_3/Application.cpp
+)
+
 add_executable(GenerateDemoAudio EXCLUDE_FROM_ALL
     tools/GenerateDemoAudio.cpp
 )
@@ -55,6 +61,10 @@ target_include_directories(Duma3D_Demo_2 PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Demos/Demo_2
 )
 target_link_libraries(Duma3D_Demo_2 PRIVATE Duma3DEngine)
+target_include_directories(Duma3D_Demo_3 PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Demos/Demo_3
+)
+target_link_libraries(Duma3D_Demo_3 PRIVATE Duma3DEngine)
 
 if(WIN32)
     target_link_libraries(Duma3DEngine PUBLIC
@@ -69,26 +79,38 @@ if(WIN32)
 
     target_link_options(Duma3D PRIVATE -mconsole)
     target_link_options(Duma3D_Demo_2 PRIVATE -mconsole)
+    target_link_options(Duma3D_Demo_3 PRIVATE -mconsole)
     if(MINGW)
         target_link_options(Duma3D PRIVATE -static -static-libgcc -static-libstdc++)
         target_link_options(Duma3D_Demo_2 PRIVATE -static -static-libgcc -static-libstdc++)
+        target_link_options(Duma3D_Demo_3 PRIVATE -static -static-libgcc -static-libstdc++)
         target_link_options(GenerateDemoAudio PRIVATE -static -static-libgcc -static-libstdc++)
     endif()
 endif()
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
-    file(GLOB_RECURSE DUMA3D_ASSET_FILES
+    file(GLOB_RECURSE DUMA3D_ALL_ASSET_FILES
         LIST_DIRECTORIES false
         CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/assets/*"
     )
-    foreach(DEMO_TARGET Duma3D Duma3D_Demo_2)
+    set(DUMA3D_ASSET_FILES)
+    foreach(ASSET_FILE IN LISTS DUMA3D_ALL_ASSET_FILES)
+        if(NOT ASSET_FILE MATCHES "/assets/sketchfab/")
+            list(APPEND DUMA3D_ASSET_FILES "${ASSET_FILE}")
+        endif()
+    endforeach()
+    foreach(DEMO_TARGET Duma3D Duma3D_Demo_2 Duma3D_Demo_3)
         set_property(TARGET ${DEMO_TARGET} APPEND PROPERTY LINK_DEPENDS ${DUMA3D_ASSET_FILES})
-        add_custom_command(TARGET ${DEMO_TARGET} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-                "${CMAKE_CURRENT_SOURCE_DIR}/assets"
-                "$<TARGET_FILE_DIR:${DEMO_TARGET}>/assets"
-        )
+        foreach(ASSET_DIRECTORY audio levels models shaders textures)
+            if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/${ASSET_DIRECTORY}")
+                add_custom_command(TARGET ${DEMO_TARGET} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_directory
+                        "${CMAKE_CURRENT_SOURCE_DIR}/assets/${ASSET_DIRECTORY}"
+                        "$<TARGET_FILE_DIR:${DEMO_TARGET}>/assets/${ASSET_DIRECTORY}"
+                )
+            endif()
+        endforeach()
     endforeach()
 endif()
 
@@ -96,8 +118,10 @@ if(MSVC)
     target_compile_options(Duma3DEngine PRIVATE /W4)
     target_compile_options(Duma3D PRIVATE /W4)
     target_compile_options(Duma3D_Demo_2 PRIVATE /W4)
+    target_compile_options(Duma3D_Demo_3 PRIVATE /W4)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_compile_options(Duma3DEngine PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Duma3D PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Duma3D_Demo_2 PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(Duma3D_Demo_3 PRIVATE -Wall -Wextra -Wpedantic)
 endif()

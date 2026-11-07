@@ -19,6 +19,8 @@ Open `Duma3D.code-workspace` in VS Code. The workspace selects the `MinGW Makefi
 
 To launch the enclosed Doom-inspired level, select **Duma3D Demo 2 (MinGW/GDB)** in **Run and Debug** and press **F5**. This builds and launches `Duma3D_Demo_2`.
 
+Demo 3 loads `assets/sketchfab/levels/map-78/source/78.glb`. Keep the downloaded `assets/sketchfab` folder at that location; Git ignores it because of its size. Select **Duma3D Demo 3 - GLB Level (MinGW/GDB)** and press **F5**. To use another GLB, pass its path as the first program argument.
+
 The build tasks are defined in `.vscode/tasks.json`, and the debugger configurations are in `.vscode/launch.json`. To build manually inside VS Code, choose **Terminal → Run Build Task** and select the target you want.
 
 The workspace configuration contains local paths for CMake, MinGW, and GDB. If these tools are installed elsewhere, update the paths in `Duma3D.code-workspace`, `.vscode/tasks.json`, and `.vscode/launch.json`.
@@ -39,7 +41,14 @@ cmake --build build --target Duma3D_Demo_2
 build\Duma3D_Demo_2.exe
 ```
 
-CMake copies the assets to `build\assets` beside each executable. Both applications resolve asset paths relative to their executable, even when launched from another working directory.
+Build and run the GLB viewer with:
+
+```bat
+cmake --build build --target Duma3D_Demo_3
+build\Duma3D_Demo_3.exe assets\sketchfab\levels\map-78\source\78.glb
+```
+
+CMake copies the project-owned assets to `build\assets` beside each executable. The ignored Sketchfab download remains in the source tree and is loaded from the workspace path when run from VS Code; absolute paths are also accepted. Demo 3 extracts embedded GLB images into a temporary cache for WIC texture loading.
 
 ## Regenerate Demo 1 textures
 

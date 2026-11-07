@@ -23,6 +23,14 @@
       "args": ["--build", "${workspaceFolder}/build", "--target", "Duma3D_Demo_2"],
       "options": { "cwd": "${workspaceFolder}" },
       "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build Duma3D Demo 3",
+      "type": "process",
+      "command": "C:/Program Files/CMake/bin/cmake.exe",
+      "args": ["--build", "${workspaceFolder}/build", "--target", "Duma3D_Demo_3"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": ["$gcc"]
     }
   ]
 }
