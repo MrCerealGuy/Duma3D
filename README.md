@@ -26,6 +26,8 @@ Demo_2 levels are loaded at runtime using the [Duma3D Indoor Level Format](LEVEL
 - **Shift:** Move faster
 - **Space:** Jump
 - **E:** Use the door, switch, or teleporter in front of you
+- **Left mouse button:** Fire the starting pistol
+- **R:** Reload the pistol
 - **Esc:** Quit
 
 ## Repository structure

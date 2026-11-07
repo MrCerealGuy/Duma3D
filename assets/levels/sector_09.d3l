@@ -57,5 +57,11 @@ switch relay relay north -2 security_gate metal warning red_led green_led
 teleporter pad_relay relay 0 0 pad_core warning relay
 teleporter pad_core breach 0 0 pad_relay warning relay
 
+# enemy: id room offset-x offset-z grunt|demon
+enemy atrium_guard atrium 0 0 grunt
+enemy reactor_demon reactor -1 0 demon
+enemy breach_demon breach 0 0 demon
+enemy control_guard control 0 0 grunt
+
 # spawn: room offset-x offset-z yaw-degrees (0 points east)
 spawn entrance 0 0 0

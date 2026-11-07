@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine/Audio/AudioPlayer.hpp"
+#include "Engine/Game/CombatSystem.hpp"
 #include "Engine/Game/FirstPersonController.hpp"
 #include "Engine/Game/World/IndoorLevel.hpp"
 #include "Engine/Graphics/Renderer.hpp"
@@ -29,6 +30,7 @@ namespace Duma3D::Demos::Demo_2
         void handleRawInput(HRAWINPUT input);
         void handleKeyDown(WPARAM key);
         void handleKeyUp(WPARAM key);
+        void handleFire();
         void rebuildLevel();
         static LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 
@@ -46,10 +48,12 @@ namespace Duma3D::Demos::Demo_2
         bool jumpRequested_ = false;
         bool lampSputtering_ = false;
         float elapsedTime_ = 0.0f;
+        float shotCooldown_ = 0.0f;
         bool keys_[256]{};
         Engine::Graphics::Camera camera_{{0.0f, 1.7f, 0.0f}};
         Engine::Game::FirstPersonController player_;
         Engine::Game::InteractionSystem interactions_;
+        Engine::Game::CombatSystem combat_;
         Engine::Game::World::IndoorLevelDefinition levelDefinition_;
         Engine::Game::World::IndoorLevelState levelState_;
         Engine::Game::World::ChunkData level_;

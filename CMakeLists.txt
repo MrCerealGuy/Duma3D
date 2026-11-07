@@ -17,6 +17,7 @@ add_library(Duma3DEngine STATIC
     src/Engine/Graphics/Camera.cpp
     src/Engine/Graphics/Renderer.cpp
     src/Engine/Game/FirstPersonController.cpp
+    src/Engine/Game/CombatSystem.cpp
     src/Engine/Game/InteractionSystem.cpp
     src/Engine/Math/Math.cpp
     src/Engine/Game/Physics/CharacterController.cpp

@@ -36,6 +36,17 @@ namespace Engine::Graphics::Scene
         return true;
     }
 
+    bool Scene::setPointLight(std::size_t index, PointLight light)
+    {
+        if (index >= m_pointLights.size() || !std::isfinite(light.intensity) || light.intensity < 0.0f ||
+            !std::isfinite(light.constantAttenuation) || light.constantAttenuation <= 0.0f ||
+            !std::isfinite(light.linearAttenuation) || light.linearAttenuation < 0.0f ||
+            !std::isfinite(light.quadraticAttenuation) || light.quadraticAttenuation < 0.0f)
+            return false;
+        m_pointLights[index] = light;
+        return true;
+    }
+
     bool Scene::addObject(std::size_t meshIndex, std::size_t materialIndex, Transform transform)
     {
         constexpr float minimumScale = 1.0e-6f;
@@ -47,6 +58,19 @@ namespace Engine::Graphics::Scene
             return false;
 
         m_objects.push_back({meshIndex, materialIndex, transform});
+        return true;
+    }
+
+    bool Scene::setObjectTransform(std::size_t index, Transform transform)
+    {
+        constexpr float minimumScale = 1.0e-6f;
+        const bool hasSingularScale =
+            std::abs(transform.scale.x) < minimumScale ||
+            std::abs(transform.scale.y) < minimumScale ||
+            std::abs(transform.scale.z) < minimumScale;
+        if (index >= m_objects.size() || hasSingularScale)
+            return false;
+        m_objects[index].transform = transform;
         return true;
     }
 

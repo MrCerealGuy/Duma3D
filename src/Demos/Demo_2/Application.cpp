@@ -48,6 +48,17 @@ namespace Duma3D::Demos::Demo_2
           level_(Engine::Game::World::IndoorLevelBuilder::build(levelDefinition_, levelState_))
     {
         title_ += L" | " + std::wstring(levelDefinition_.name.begin(), levelDefinition_.name.end());
+        std::vector<Engine::Game::EnemySpawn> enemySpawns;
+        enemySpawns.reserve(levelDefinition_.enemies.size());
+        for (const auto& enemy : levelDefinition_.enemies)
+        {
+            const auto room = std::find_if(levelDefinition_.rooms.begin(), levelDefinition_.rooms.end(),
+                [&enemy](const auto& item) { return item.id == enemy.room; });
+            enemySpawns.push_back({{room->x + enemy.offsetX, 0.0f, room->z + enemy.offsetZ},
+                enemy.type == "demon" ? Engine::Game::EnemyType::Demon : Engine::Game::EnemyType::Grunt});
+        }
+        combat_.initialize(std::move(enemySpawns));
+        combat_.attachScene(level_.graphics);
         Engine::Game::World::IndoorLevelBuilder::placeAtSpawn(levelDefinition_, camera_);
         Engine::Game::World::IndoorLevelBuilder::registerInteractions(
             levelDefinition_, levelState_, interactions_, camera_);
@@ -88,7 +99,7 @@ namespace Duma3D::Demos::Demo_2
             DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
             FIXED_PITCH | FF_MODERN, L"Consolas");
         hudHwnd_ = CreateWindowExW(WS_EX_CLIENTEDGE, L"STATIC", L"", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOPREFIX,
-            16, 16, 470, 185, hwnd_, nullptr, windowClass.hInstance, nullptr);
+            16, 16, 470, 245, hwnd_, nullptr, windowClass.hInstance, nullptr);
         if (!hudBackground_ || !hudFont_ || !hudHwnd_) return false;
         SendMessageW(hudHwnd_, WM_SETFONT, reinterpret_cast<WPARAM>(hudFont_), TRUE);
         updateHud();
@@ -170,6 +181,7 @@ namespace Duma3D::Demos::Demo_2
     void Application::update(float dt)
     {
         elapsedTime_ += dt;
+        shotCooldown_ = std::max(0.0f, shotCooldown_ - dt);
         audio_.update(dt);
         if (Engine::Game::World::IndoorLevelBuilder::advanceDoors(levelDefinition_, levelState_, dt))
             rebuildLevel();
@@ -180,15 +192,20 @@ namespace Duma3D::Demos::Demo_2
         lampSputtering_ = sputtering;
 
         const Engine::Game::Physics::GroundHeightSampler ground = [](float, float) { return 0.0f; };
+        const float canMove = combat_.health() > 0.0f ? 1.0f : 0.0f;
         const Engine::Game::FirstPersonInput input{
-            static_cast<float>(keys_['W']) - static_cast<float>(keys_['S']),
-            static_cast<float>(keys_['D']) - static_cast<float>(keys_['A']),
+            (static_cast<float>(keys_['W']) - static_cast<float>(keys_['S'])) * canMove,
+            (static_cast<float>(keys_['D']) - static_cast<float>(keys_['A'])) * canMove,
             0.0f,
             keys_[VK_SHIFT],
-            jumpRequested_
+            jumpRequested_ && canMove > 0.0f
         };
         player_.update(level_.colliders, camera_, input, dt, ground);
         jumpRequested_ = false;
+        combat_.update(dt, camera_.position(), level_.colliders, level_.graphics);
+        combat_.updateWeapon(camera_, level_.graphics);
+        if (combat_.health() <= 0.0f)
+            statusMessage_ = L"Du bist gefallen";
         updateHud();
     }
 
@@ -198,7 +215,12 @@ namespace Duma3D::Demos::Demo_2
         {
             const Engine::Game::Interactable* target = interactions_.target(camera_);
             const std::wstring levelName(levelDefinition_.name.begin(), levelDefinition_.name.end());
-            std::wstring text = L"DUMA3D // " + levelName + L"\r\n\r\n[WASD] Bewegen   [Maus] Umsehen\r\n[Shift] Sprint   [Space] Springen\r\n[E] Interagieren   [Esc] Beenden\r\n\r\n";
+            std::wstring text = L"DUMA3D // " + levelName + L"\r\n";
+            text += L"HP " + std::to_wstring(static_cast<int>(combat_.health())) + L"    Gegner " +
+                std::to_wstring(combat_.enemiesAlive()) + L"\r\nPistole  " +
+                std::to_wstring(combat_.magazine()) + L" / ∞\r\n\r\n";
+            text += L"[WASD] Bewegen   [Maus] Umsehen\r\n[Shift] Sprint   [Space] Springen\r\n";
+            text += L"[LMB] Feuern   [R] Nachladen\r\n[E] Interagieren   [Esc] Beenden\r\n\r\n";
             if (target) text += target->prompt + L"\r\n";
             text += statusMessage_;
             SetWindowTextW(hudHwnd_, text.c_str());
@@ -208,6 +230,7 @@ namespace Duma3D::Demos::Demo_2
     void Application::rebuildLevel()
     {
         level_ = Engine::Game::World::IndoorLevelBuilder::build(levelDefinition_, levelState_);
+        combat_.attachScene(level_.graphics);
         if (!renderer_.updateScene(level_.graphics))
         {
             OutputDebugStringW(L"Duma3D Demo 2: Szenenupdate fehlgeschlagen.\n");
@@ -232,6 +255,11 @@ namespace Duma3D::Demos::Demo_2
         if (key < 256) keys_[key] = true;
         if (key == VK_ESCAPE) running_ = false;
         if (key == VK_SPACE && !wasDown) jumpRequested_ = true;
+        if (key == 'R' && !wasDown)
+        {
+            combat_.reload();
+            statusMessage_ = L"Pistole nachgeladen";
+        }
         if (key == 'E' && !wasDown)
         {
             const Engine::Game::InteractionResult result = interactions_.interact(camera_);
@@ -266,6 +294,28 @@ namespace Duma3D::Demos::Demo_2
         updateHud();
     }
 
+    void Application::handleFire()
+    {
+        if (shotCooldown_ > 0.0f || combat_.health() <= 0.0f)
+            return;
+        const Engine::Game::ShotResult result = combat_.fire(
+            camera_.position(), camera_.front(), level_.colliders);
+        if (!result.fired)
+        {
+            statusMessage_ = L"Magazin leer - [R] Nachladen";
+            updateHud();
+            return;
+        }
+        shotCooldown_ = 0.28f;
+        statusMessage_ = result.killed ? L"Gegner ausgeschaltet" : result.hit ? L"Treffer" : L"Schuss daneben";
+        audio_.play("assets/audio/pistol.wav", Engine::Audio::Priority::Weapon);
+        if (result.killed)
+            audio_.play("assets/audio/enemy_death.wav", Engine::Audio::Priority::EnemyDeath);
+        else if (result.hit)
+            audio_.play("assets/audio/enemy_hit.wav", Engine::Audio::Priority::Hit);
+        updateHud();
+    }
+
     void Application::handleKeyUp(WPARAM key)
     {
         if (key < 256) keys_[key] = false;
@@ -278,6 +328,7 @@ namespace Duma3D::Demos::Demo_2
         {
             case WM_KEYDOWN: if (app) app->handleKeyDown(wParam); return 0;
             case WM_KEYUP: if (app) app->handleKeyUp(wParam); return 0;
+            case WM_LBUTTONDOWN: if (app) app->handleFire(); return 0;
             case WM_INPUT:
                 if (app) app->handleRawInput(reinterpret_cast<HRAWINPUT>(lParam));
                 return DefWindowProcW(hwnd, message, wParam, lParam);
@@ -286,7 +337,7 @@ namespace Duma3D::Demos::Demo_2
                 {
                     app->width_ = LOWORD(lParam);
                     app->height_ = HIWORD(lParam);
-                    if (app->hudHwnd_) MoveWindow(app->hudHwnd_, 16, 16, 470, 185, TRUE);
+                    if (app->hudHwnd_) MoveWindow(app->hudHwnd_, 16, 16, 470, 245, TRUE);
                 }
                 return 0;
             case WM_CTLCOLORSTATIC:

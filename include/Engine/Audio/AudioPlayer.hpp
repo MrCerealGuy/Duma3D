@@ -10,8 +10,11 @@ namespace Engine::Audio
         Flicker = 1,
         Door = 2,
         Switch = 3,
-        Teleporter = 4,
-        Alert = 5
+        Weapon = 4,
+        Teleporter = 5,
+        Hit = 6,
+        Alert = 7,
+        EnemyDeath = 8
     };
 
     // Small Windows WAV player for ambient loops and prioritized one-shot cues.

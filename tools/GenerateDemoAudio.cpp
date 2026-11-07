@@ -126,6 +126,39 @@ namespace
         return 0.18 * rise * sweep + 0.06 * harmonic + shimmer + 0.36 * burst;
     }
 
+    double pistol(double time, std::uint32_t frame)
+    {
+        const double crack = noise(frame * 29u + 1701u) * std::exp(-time * 58.0);
+        const double lowThump = std::sin(2.0 * pi * (88.0 - 48.0 * time) * time) * std::exp(-time * 17.0);
+        const double metallicTail = time > 0.025
+            ? 0.18 * std::sin(2.0 * pi * 690.0 * (time - 0.025)) * std::exp(-(time - 0.025) * 36.0)
+            : 0.0;
+        return 0.66 * crack + 0.36 * lowThump + metallicTail;
+    }
+
+    double enemyHit(double time, std::uint32_t frame)
+    {
+        const double impact = noise(frame * 37u + 227u) * std::exp(-time * 48.0);
+        const double thud = std::sin(2.0 * pi * (118.0 - 62.0 * time) * time) * std::exp(-time * 22.0);
+        const double ringTime = time - 0.018;
+        const double ring = ringTime > 0.0
+            ? 0.12 * std::sin(2.0 * pi * 510.0 * ringTime) * std::exp(-ringTime * 32.0)
+            : 0.0;
+        return 0.48 * impact + 0.44 * thud + ring;
+    }
+
+    double enemyDeath(double time, std::uint32_t frame)
+    {
+        const double fall = time > 0.04
+            ? std::sin(2.0 * pi * (74.0 - 28.0 * time) * (time - 0.04)) * std::exp(-(time - 0.04) * 5.0)
+            : 0.0;
+        const double hit = noise(frame * 41u + 907u) * std::exp(-time * 18.0);
+        const double groan = time > 0.11
+            ? std::sin(2.0 * pi * (92.0 - 36.0 * time) * time) * std::exp(-(time - 0.11) * 4.0)
+            : 0.0;
+        return 0.35 * hit + 0.38 * fall + 0.2 * groan;
+    }
+
     double ambience(double time, std::uint32_t)
     {
         const double modulation = 0.76 + 0.12 * std::sin(2.0 * pi * 3.0 * time) +
@@ -147,6 +180,9 @@ int main(int argc, char** argv)
     writeWave(outputDirectory / "relay_switch.wav", 0.55f, switchClick);
     writeWave(outputDirectory / "lamp_flicker.wav", 0.28f, lampFlicker);
     writeWave(outputDirectory / "teleporter.wav", 1.7f, teleporter);
+    writeWave(outputDirectory / "pistol.wav", 0.24f, pistol);
+    writeWave(outputDirectory / "enemy_hit.wav", 0.19f, enemyHit);
+    writeWave(outputDirectory / "enemy_death.wav", 0.62f, enemyDeath);
     writeWave(outputDirectory / "access_denied.wav", 0.42f,
         [](double time, std::uint32_t frame)
         {

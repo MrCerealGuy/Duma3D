@@ -361,6 +361,16 @@ namespace Engine::Game::World
                 requireRead(input, teleporter.powerSwitch, filePath, lineNumber);
                 definition.teleporters.push_back(std::move(teleporter));
             }
+            else if (record == "enemy")
+            {
+                IndoorEnemy enemy;
+                requireRead(input, enemy.id, filePath, lineNumber);
+                requireRead(input, enemy.room, filePath, lineNumber);
+                requireRead(input, enemy.offsetX, filePath, lineNumber);
+                requireRead(input, enemy.offsetZ, filePath, lineNumber);
+                requireRead(input, enemy.type, filePath, lineNumber);
+                definition.enemies.push_back(std::move(enemy));
+            }
             else if (record == "spawn")
             {
                 if (spawnRead) parseError(filePath, lineNumber, "duplicate spawn record");
@@ -382,6 +392,7 @@ namespace Engine::Game::World
         const auto doors = indexById(definition.doors);
         const auto switches = indexById(definition.switches);
         const auto teleporters = indexById(definition.teleporters);
+        indexById(definition.enemies);
         if (!nameRead || !settingsRead || !spawnRead || definition.name.empty() || definition.rooms.empty() || definition.links.empty() ||
             definition.materials.empty() || definition.doors.empty())
             throw std::runtime_error("Indoor level requires a name, materials, rooms, links, and doors");
@@ -483,6 +494,16 @@ namespace Engine::Game::World
                 std::abs(teleporter.offsetX) >= definition.roomSize * 0.5f - 1.3f ||
                 std::abs(teleporter.offsetZ) >= definition.roomSize * 0.5f - 1.3f)
                 throw std::runtime_error("Teleporter pad is outside its room floor");
+        }
+        for (const IndoorEnemy& enemy : definition.enemies)
+        {
+            requireId(rooms, enemy.room, definition.rooms, "room");
+            if (enemy.type != "grunt" && enemy.type != "demon")
+                throw std::runtime_error("Enemy type must be grunt or demon");
+            if (!std::isfinite(enemy.offsetX) || !std::isfinite(enemy.offsetZ) ||
+                std::abs(enemy.offsetX) >= definition.roomSize * 0.5f - 0.7f ||
+                std::abs(enemy.offsetZ) >= definition.roomSize * 0.5f - 0.7f)
+                throw std::runtime_error("Enemy spawn must be finite and inside its room");
         }
         requireId(rooms, definition.spawn.room, definition.rooms, "spawn room");
         if (!std::isfinite(definition.spawn.offsetX) || !std::isfinite(definition.spawn.offsetZ) ||

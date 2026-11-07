@@ -31,13 +31,14 @@ settings 10 14 4 3.2
 | `lamp` | `room side offset material-id r g b intensity behavior` | Adds a wall luminaire and point light. Side is `north`, `east`, `south`, or `west`; offset is along the wall; behavior is `steady`, `flicker`, or `sputter`. |
 | `switch` | `id room side offset door-id body handle off-led on-led` | Adds a wall-mounted lever that supplies power to the named door. Offset is along the wall. Switches start off. |
 | `teleporter` | `id room offset-x offset-z destination-id material-id required-switch-or--` | Adds a teleporter pad that sends the player to the destination pad. |
+| `enemy` | `id room offset-x offset-z grunt-or-demon` | Adds a hostile actor at a room-relative position. Grunts move and fire slowly; demons are tougher and more aggressive. |
 | `spawn` | `room offset-x offset-z yaw-degrees` | Sets player start position and heading; zero degrees faces east (+X). |
 
 The level builder uses these conventional material IDs for shared room parts: `wall`, `floor`, `metal`, `trim`, `warning`, and `teleporter_on`. Other material IDs are chosen by the level records. A door's `required-switch` and a teleporter's `required-switch` refer to a switch ID; `-` means no power requirement.
 
 ## Example
 
-This is the complete level currently used by Demo_2: [sector_09.d3l](assets/levels/sector_09.d3l). It defines a six-room loop, a powered security gate, six contrasting lamps, a relay switch, and a paired teleporter route.
+This is the complete level currently used by Demo_2: [sector_09.d3l](assets/levels/sector_09.d3l). It defines a six-room loop, a powered security gate, six contrasting lamps, a relay switch, a paired teleporter route, and four enemies.
 
 Load another `.d3l` file by passing its asset-relative path to Demo_2:
 

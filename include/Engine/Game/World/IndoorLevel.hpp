@@ -76,6 +76,15 @@ namespace Engine::Game::World
         std::string powerSwitch;
     };
 
+    struct IndoorEnemy
+    {
+        std::string id;
+        std::string room;
+        float offsetX = 0.0f;
+        float offsetZ = 0.0f;
+        std::string type;
+    };
+
     struct IndoorSpawn
     {
         std::string room;
@@ -98,6 +107,7 @@ namespace Engine::Game::World
         std::vector<IndoorLamp> lamps;
         std::vector<IndoorSwitch> switches;
         std::vector<IndoorTeleporter> teleporters;
+        std::vector<IndoorEnemy> enemies;
         IndoorSpawn spawn;
     };
 
